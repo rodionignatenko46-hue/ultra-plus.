@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = 'https://dhlvlbmjhkrpqsqatpwh.supabase.co';
@@ -13,58 +12,47 @@ app.use(express.static(__dirname));
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
-const DB_USERS = path.join(__dirname, 'users.json');
-const DB_MSGS = path.join(__dirname, 'messages.json');
+let onlineUsers = {}; 
+let typingUsers = {};
 
-let users = fs.existsSync(DB_USERS) ? JSON.parse(fs.readFileSync(DB_USERS)) : {};
-let messages = fs.existsSync(DB_MSGS) ? JSON.parse(fs.readFileSync(DB_MSGS)) : {};
-let onlineUsers = {}; // Кто сейчас в сети (username: timestamp)
-let typingUsers = {}; // Кто печатает (username: timestamp)
-
-function saveData() {
-  fs.writeFileSync(DB_USERS, JSON.stringify(users, null, 2));
-  fs.writeFileSync(DB_MSGS, JSON.stringify(messages, null, 2));
-}
-
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { username, phone, avatar, hidePhone } = req.body;
-  if (!users[username]) {
-    users[username] = { phone: phone || '', avatar: avatar || '', hidePhone: hidePhone || false, chats: [] };
+  const { data: existing } = await supabase.from('users').select('*').eq('username', username).single();
+  if (!existing) {
+    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false, chats: [] }]);
   } else {
-    if (phone) users[username].phone = phone;
-    if (avatar !== undefined) users[username].avatar = avatar;
-    if (hidePhone !== undefined) users[username].hidePhone = hidePhone;
+    let updateData = {};
+    if (phone) updateData.phone = phone;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (hidePhone !== undefined) updateData.hide_phone = hidePhone;
+    await supabase.from('users').update(updateData).eq('username', username);
   }
-  saveData();
-  res.json({ success: true, user: users[username] });
+  res.json({ success: true });
 });
 
-app.get('/api/find-by-phone/:phone', (req, res) => {
-  const phone = req.params.phone;
-  for (const [username, data] of Object.entries(users)) {
-    if (data.phone === phone) return res.json({ username, avatar: data.avatar });
-  }
-  res.json(null);
+app.get('/api/find-by-phone/:phone', async (req, res) => {
+  const { data } = await supabase.from('users').select('username, avatar').eq('phone', req.params.phone).single();
+  res.json(data || null);
 });
 
-app.get('/api/user/:username', (req, res) => {
-  const u = users[req.params.username];
-  if (u) {
-    const lastSeen = onlineUsers[req.params.username] ? 'online' : 'offline';
-    res.json({ username: req.params.username, phone: u.hidePhone ? 'Скрыт' : u.phone, avatar: u.avatar, lastSeen });
-  } else res.json(null);
+app.get('/api/user/:username', async (req, res) => {
+  const { data } = await supabase.from('users').select('*').eq('username', req.params.username).single();
+  if (data) res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar });
+  else res.json(null);
 });
 
-app.get('/api/chats/:username', (req, res) => {
-  res.json(users[req.params.username]?.chats || []);
+app.get('/api/chats/:username', async (req, res) => {
+  const { data } = await supabase.from('users').select('chats').eq('username', req.params.username).single();
+  res.json(data?.chats || []);
 });
 
-app.post('/api/addChat', (req, res) => {
+app.post('/api/addChat', async (req, res) => {
   const { username, chatId, name, isGroup } = req.body;
-  const u = users[username];
-  if (u && !u.chats.find(c => c.id === chatId)) {
-    u.chats.push({ id: chatId, name, isGroup });
-    saveData();
+  const { data } = await supabase.from('users').select('chats').eq('username', username).single();
+  let chats = data?.chats || [];
+  if (!chats.find(c => c.id === chatId)) {
+    chats.push({ id: chatId, name, isGroup });
+    await supabase.from('users').update({ chats }).eq('username', username);
   }
   res.json({ success: true });
 });
@@ -83,7 +71,6 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
-// Пульс (отслеживание онлайна и печати)
 app.post('/api/pulse', (req, res) => {
   const { username, typing } = req.body;
   onlineUsers[username] = Date.now();
@@ -91,46 +78,39 @@ app.post('/api/pulse', (req, res) => {
   res.json({ success: true });
 });
 
-// Получение статуса собеседника
 app.get('/api/status/:username', (req, res) => {
   const user = req.params.username;
   const now = Date.now();
-  const isOnline = onlineUsers[user] && (now - onlineUsers[user] < 15000); // В сети, если активен 15 сек
-  const isTyping = typingUsers[user] && (now - typingUsers[user] < 5000); // Печатает, если активен 5 сек
+  const isOnline = onlineUsers[user] && (now - onlineUsers[user] < 15000);
+  const isTyping = typingUsers[user] && (now - typingUsers[user] < 5000);
   res.json({ isOnline, isTyping });
 });
 
-app.post('/api/message', (req, res) => {
+app.post('/api/message', async (req, res) => {
   const { chatId, from, text, fileUrl, fileType, replyTo } = req.body;
-  if (!messages[chatId]) messages[chatId] = [];
   const msgId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-  messages[chatId].push({ id: msgId, from, text: text || '', fileUrl: fileUrl || null, fileType: fileType || null, replyTo: replyTo || null, time: Date.now(), readBy: [from] });
-  saveData();
+  await supabase.from('messages').insert([{ id: msgId, chat_id: chatId, sender: from, text: text || '', file_url: fileUrl || null, file_type: fileType || null, reply_to: replyTo || null, time: Date.now(), read_by: [from] }]);
   res.json({ success: true, id: msgId });
 });
 
-// Удаление сообщения
-app.delete('/api/message/:chatId/:msgId', (req, res) => {
-  const { chatId, msgId } = req.params;
-  if (messages[chatId]) {
-    messages[chatId] = messages[chatId].filter(m => m.id !== msgId);
-    saveData();
-  }
+app.delete('/api/message/:chatId/:msgId', async (req, res) => {
+  await supabase.from('messages').delete().eq('id', req.params.msgId);
   res.json({ success: true });
 });
 
-app.get('/api/messages/:chatId', (req, res) => {
+app.get('/api/messages/:chatId', async (req, res) => {
   const { chatId } = req.params;
   const { reader } = req.query;
-  const msgs = messages[chatId] || [];
-  let updated = false;
-  if (reader) {
-    msgs.forEach(m => {
-      if (m.from !== reader && !m.readBy.includes(reader)) { m.readBy.push(reader); updated = true; }
-    });
-    if (updated) saveData();
+  const { data: msgs } = await supabase.from('messages').select('*').eq('chat_id', chatId).order('time', { ascending: true });
+  if (reader && msgs) {
+    for (let m of msgs) {
+      if (m.sender !== reader && !m.read_by.includes(reader)) {
+        m.read_by.push(reader);
+        await supabase.from('messages').update({ read_by: m.read_by }).eq('id', m.id);
+      }
+    }
   }
-  res.json(msgs);
+  res.json(msgs || []);
 });
 
 const PORT = process.env.PORT || 3000;
