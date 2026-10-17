@@ -21,8 +21,11 @@
 <div id="main-screen">
   <div class="header">
     <h2 id="my-name">Мой профиль</h2>
-    <button onclick="showNewChat()">+ Чат</button>
-    <button onclick="showNewGroup()">+ Группа</button>
+    <div>
+      <button onclick="showNewGroup()">+ Группа</button>
+      <button onclick="showNewChat()">+ Чат</button>
+      <button class="profile-btn" onclick="showProfile()">👤</button>
+    </div>
   </div>
   <div id="chat-list"></div>
 </div>
@@ -39,16 +42,31 @@
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()">📎</button>
+    <button onclick="recordVoice()" id="mic-btn" style="background: none; color: #3390ec;">🎤</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
 
+<!-- Экран профиля -->
+<div id="profile-screen">
+  <div class="profile-header">
+    <button class="back-btn" onclick="closeProfile()">←</button>
+    <h2>Мой профиль</h2>
+  </div>
+  <div class="profile-info">
+    <div class="profile-avatar" id="prof-avatar"></div>
+    <div class="profile-name" id="prof-name"></div>
+  </div>
+  <input id="prof-new-avatar" class="profile-input" placeholder="Новая ссылка на аватарку">
+  <button class="profile-save-btn" onclick="saveProfile()">Сохранить</button>
+</div>
+
 <script>
 let currentUser = "", currentChatId = "", currentChatName = "", messageInterval;
 let selectedFile = null, selectedFileType = null;
+let mediaRecorder, audioChunks = [];
 
-// Проверка: если логин уже сохранен в браузере, входим сразу
 window.onload = () => {
   const savedUser = localStorage.getItem('ultra_user');
   if(savedUser) {
@@ -64,16 +82,10 @@ async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const avatar = document.getElementById('reg-avatar').value.trim();
   if(!username) return alert("Введите логин!");
-  
-  const res = await fetch('/api/register', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username, avatar })
-  });
-  const data = await res.json();
-  
-  if(data.success) {
+  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, avatar }) });
+  if((await res.json()).success) {
     currentUser = username;
-    localStorage.setItem('ultra_user', currentUser); // ЗАПОМИНАЕМ ЛОГИН
+    localStorage.setItem('ultra_user', currentUser);
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('my-name').innerText = '@' + currentUser;
@@ -86,32 +98,28 @@ async function loadChats() {
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-  if(chats.length === 0) list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите "+ Чат"</p>';
-  
+  if(chats.length === 0) list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов.</p>';
   chats.forEach(chat => {
     const div = document.createElement('div');
     div.className = 'chat-item';
     div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    div.innerHTML = `
-      <div class="chat-avatar">${chat.isGroup ? '👥' : chat.name[0].toUpperCase()}</div>
-      <div class="chat-info"><div class="chat-name">${chat.name}</div></div>`;
+    div.innerHTML = `<div class="chat-avatar">${chat.isGroup ? '👥' : chat.name[0].toUpperCase()}</div><div class="chat-info"><div class="chat-name">${chat.name}</div></div>`;
     list.appendChild(div);
   });
 }
 
 async function showNewChat() {
-  const toUser = prompt("Введите логин собеседника (без @):");
+  const toUser = prompt("Введите логин собеседника:");
   if(!toUser || toUser === currentUser) return;
-  const res = await fetch('/api/user/' + toUser);
-  if(!(await res.json())) return alert("Пользователь не найден!");
+  if(!(await (await fetch('/api/user/' + toUser)).json())) return alert("Пользователь не найден!");
   const chatId = [currentUser, toUser].sort().join('_');
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: toUser, isGroup: false }) });
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: toUser, chatId, name: currentUser, isGroup: false }) });
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: toUser }) });
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: toUser, chatId, name: currentUser }) });
   loadChats();
 }
 
 async function showNewGroup() {
-  const groupName = prompt("Введите название группы:");
+  const groupName = prompt("Название группы:");
   if(!groupName) return;
   await fetch('/api/group', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ groupName, creator: currentUser }) });
   loadChats();
@@ -123,10 +131,9 @@ function openChat(id, name, isGroup) {
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('chat-title').innerText = name;
   document.getElementById('chat-head-avatar').innerHTML = isGroup ? '👥' : name[0].toUpperCase();
-  
   loadMessages();
   if(messageInterval) clearInterval(messageInterval);
-  messageInterval = setInterval(loadMessages, 1000); // Проверка каждую секунду
+  messageInterval = setInterval(loadMessages, 1000);
 }
 
 function closeChat() {
@@ -136,17 +143,63 @@ function closeChat() {
   loadChats();
 }
 
+function showProfile() {
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('profile-screen').style.display = 'flex';
+  document.getElementById('prof-name').innerText = '@' + currentUser;
+  document.getElementById('prof-avatar').innerHTML = currentUser[0].toUpperCase();
+}
+function closeProfile() {
+  document.getElementById('profile-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+}
+async function saveProfile() {
+  const newAv = document.getElementById('prof-new-avatar').value.trim();
+  if(!newAv) return;
+  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: newAv }) });
+  alert("Аватарка обновлена!");
+  closeProfile();
+}
+
 function handleFileSelect(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 10 * 1024 * 1024) return alert("Файл больше 10МБ");
   const reader = new FileReader();
   reader.onload = function(e) {
     selectedFile = e.target.result;
     selectedFileType = file.type;
-    document.getElementById('msg-input').placeholder = "Файл прикреплен! Нажмите ➤";
+    document.getElementById('msg-input').placeholder = "Файл прикреплен!";
   };
   reader.readAsDataURL(file);
+}
+
+// Запись голосового сообщения
+async function recordVoice() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        selectedFile = e.target.result;
+        selectedFileType = 'audio/webm';
+        alert("Голосовое записано! Нажмите ➤ чтобы отправить.");
+      };
+      reader.readAsDataURL(audioBlob);
+    };
+    mediaRecorder.start();
+    document.getElementById('mic-btn').style.color = 'red'; // Индикатор записи
+    setTimeout(() => {
+      if(mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        document.getElementById('mic-btn').style.color = '#3390ec';
+        stream.getTracks().forEach(track => track.stop());
+      }
+    }, 5000); // Запись 5 секунд (для теста)
+  } catch(e) { alert("Нет доступа к микрофону"); }
 }
 
 async function loadMessages() {
@@ -155,7 +208,6 @@ async function loadMessages() {
     const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
     const msgs = await res.json();
     const box = document.getElementById('messages');
-    
     if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
     
     box.innerHTML = '';
@@ -172,6 +224,7 @@ async function loadMessages() {
       if(m.fileData) {
         if(m.fileType.startsWith('image/')) content += `<img src="${m.fileData}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
         else if(m.fileType.startsWith('video/')) content += `<video src="${m.fileData}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+        else if(m.fileType.startsWith('audio/')) content += `<audio src="${m.fileData}" controls></audio><br>`;
         else content += `<a href="${m.fileData}" download="file" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
@@ -191,19 +244,13 @@ async function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if(!text && !selectedFile) return;
-
   input.value = '';
   const tempFile = selectedFile;
   const tempType = selectedFileType;
   selectedFile = null;
   selectedFileType = null;
   input.placeholder = "Написать сообщение...";
-
-  await fetch('/api/message', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: tempFile, fileType: tempType })
-  });
-  
+  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: tempFile, fileType: tempType }) });
   loadMessages();
 }
 </script>
