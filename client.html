@@ -9,41 +9,10 @@
   <style>
     html, body { height: 100%; overflow: hidden; }
     #chat-screen, #main-screen, #auth-screen { height: 100dvh; }
-    
-    /* Стили для кружочков */
-    .video-circle {
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid #6e44ff;
-      cursor: pointer;
-      box-shadow: 0 0 15px rgba(110, 68, 255, 0.5);
-      margin-bottom: 5px;
-      transition: transform 0.2s;
-    }
-    .video-circle:active { transform: scale(0.95); }
-
-    /* Модальное окно */
-    #video-modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9);
-      z-index: 999;
-      justify-content: center;
-      align-items: center;
-    }
-    #video-modal video {
-      max-width: 90%;
-      max-height: 90%;
-      border-radius: 20px;
-    }
   </style>
 </head>
 <body>
 
-<!-- Экран входа -->
 <div id="auth-screen">
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
@@ -60,7 +29,6 @@
   <p class="auth-footer">Нажимая «Войти», вы соглашаетесь с правилами Ультра+</p>
 </div>
 
-<!-- Главный экран -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -73,13 +41,12 @@
   <button class="fab" onclick="findUser()">+</button>
   <div class="bottom-nav">
     <div class="nav-item active"><span class="nav-icon">💬</span><span>Чаты</span></div>
-    <div class="nav-item" onclick="alert('Скоро!')"><span class="nav-icon">📞</span><span>Звонки</span></div>
-    <div class="nav-item" onclick="alert('Скоро!')"><span class="nav-icon">👥</span><span>Контакты</span></div>
+    <div class="nav-item"><span class="nav-icon">📞</span><span>Звонки</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span>Контакты</span></div>
     <div class="nav-item" onclick="showProfile()"><span class="nav-icon">👤</span><span>Профиль</span></div>
   </div>
 </div>
 
-<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
@@ -97,15 +64,12 @@
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
-    <!-- Кнопка видео -->
-    <button onclick="toggleVideoRecording()" id="video-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📹</button>
     <button onclick="toggleRecording()" id="mic-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
 
-<!-- Экран профиля -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" onclick="closeProfile()" style="color: #fff; font-size: 24px;">←</button>
@@ -119,28 +83,20 @@
     <div id="prof-phone" class="profile-phone">+...</div>
   </div>
   <div class="profile-settings">
-    <div class="setting-item" onclick="editBio()"><span>📝 Изменить статус (О себе)</span></div>
+    <div class="setting-item" onclick="editBio()"><span>📝 Изменить статус</span></div>
     <div class="setting-item" onclick="document.getElementById('avatar-upload').click()"><span>📷 Выбрать фото</span></div>
     <div class="setting-item" onclick="toggleHidePhone()"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
-    <div class="setting-item" onclick="logout()"><span style="color: #ff4444;">🚪 Выйти из аккаунта</span></div>
+    <div class="setting-item" onclick="logout()"><span style="color: #ff4444;">🚪 Выйти</span></div>
   </div>
-</div>
-
-<!-- Модальное окно для полноэкранного видео -->
-<div id="video-modal" onclick="this.style.display='none'">
-  <video id="fullscreen-video" controls autoplay></video>
 </div>
 
 <script>
 let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
-let currentChatId = "", currentChatName = "", currentChatIsGroup = false, messageInterval, statusInterval;
+let currentChatId = "", currentChatName = "", messageInterval, statusInterval;
 let selectedFile = null, selectedFileType = null;
 let replyToMessage = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
-
-// Переменные для видео
-let videoRecorder, videoChunks = [], isVideoRecording = false;
 
 window.onload = () => {
   const savedUser = localStorage.getItem('ultra_user');
@@ -189,7 +145,7 @@ async function showProfile() {
 }
 
 async function editBio() {
-  const newBio = prompt("Ваш новый статус (О себе):");
+  const newBio = prompt("Ваш новый статус:");
   if(newBio === null) return;
   await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, bio: newBio }) });
   document.getElementById('prof-bio').innerText = newBio || 'Напишите что-нибудь о себе...';
@@ -253,7 +209,7 @@ async function findUser() {
 }
 
 function openChat(id, name, isGroup) {
-  currentChatId = id; currentChatName = name; currentChatIsGroup = isGroup;
+  currentChatId = id; currentChatName = name;
   document.getElementById('main-screen').style.display = 'none';
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('chat-title').innerText = '@' + name;
@@ -261,7 +217,7 @@ function openChat(id, name, isGroup) {
   if(messageInterval) clearInterval(messageInterval);
   messageInterval = setInterval(loadMessages, 1000);
   if(statusInterval) clearInterval(statusInterval);
-  if(!isGroup) statusInterval = setInterval(checkStatus, 2000);
+  statusInterval = setInterval(checkStatus, 2000);
 }
 
 function closeChat() { document.getElementById('chat-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; clearInterval(messageInterval); clearInterval(statusInterval); loadChats(); }
@@ -329,51 +285,6 @@ async function toggleRecording() {
   }
 }
 
-// --- КРУЖОЧКИ (ВИДЕО) ---
-async function toggleVideoRecording() {
-  const videoBtn = document.getElementById('video-btn');
-  if(!isVideoRecording) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-      videoRecorder = new MediaRecorder(stream);
-      videoChunks = [];
-      videoRecorder.ondataavailable = e => videoChunks.push(e.data);
-      videoRecorder.onstop = async () => {
-        const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-          document.getElementById('msg-input').placeholder = "Отправка видео...";
-          const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'circle.webm', fileData: e.target.result, fileType: 'video/webm' }) });
-          const data = await res.json();
-          if(data.success) {
-            await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text: '', fileUrl: data.url, fileType: 'video/webm', replyTo: null }) });
-            loadMessages();
-            document.getElementById('msg-input').placeholder = "Написать сообщение...";
-          } else {
-            alert("Ошибка загрузки видео: " + data.error);
-          }
-        };
-        reader.readAsDataURL(videoBlob);
-      };
-      videoRecorder.start(); isVideoRecording = true;
-      videoBtn.style.color = 'red'; videoBtn.innerText = '⏹️';
-      setTimeout(() => { if(isVideoRecording) toggleVideoRecording(); }, 5000);
-    } catch(e) { alert("Нет доступа к камере."); }
-  } else {
-    videoRecorder.stop(); isVideoRecording = false;
-    videoBtn.style.color = '#3390ec'; videoBtn.innerText = '📹';
-    videoRecorder.stream.getTracks().forEach(track => track.stop());
-  }
-}
-
-function openVideo(url) {
-  const modal = document.getElementById('video-modal');
-  const video = document.getElementById('fullscreen-video');
-  video.src = url;
-  modal.style.display = 'flex';
-}
-
-// --- СООБЩЕНИЯ ---
 async function loadMessages() {
   if(!currentChatId) return;
   try {
@@ -394,9 +305,40 @@ async function loadMessages() {
       }
       if(m.file_url) {
         if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
-        else if(m.file_type.startsWith('video/')) content += `<video class="video-circle" src="${m.file_url}" onclick="openVideo('${m.file_url}')" muted loop></video><br>`;
+        else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
         else if(m.file_type.startsWith('audio/')) content += `<audio src="${m.file_url}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
         else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
-  
+      let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
+      if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
+      div.innerHTML = html; box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
+}
+
+function setReply(id, text) { replyToMessage = { id, text }; document.getElementById('reply-text').innerText = text; document.getElementById('reply-preview').style.display = 'block'; document.getElementById('msg-input').focus(); }
+function cancelReply() { replyToMessage = null; document.getElementById('reply-preview').style.display = 'none'; }
+async function deleteMsg(id) { if(confirm("Удалить?")) { await fetch(`/api/message/${currentChatId}/${id}`, { method: 'DELETE' }); loadMessages(); } }
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text && !selectedFile) return;
+  let fileUrl = null, fileTypeToSend = null;
+  if(selectedFile) {
+    input.placeholder = "Загрузка...";
+    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'file', fileData: selectedFile, fileType: selectedFileType }) });
+    const data = await res.json();
+    if(data.success) { fileUrl = data.url; fileTypeToSend = selectedFileType; }
+    else { alert('Ошибка загрузки'); return; }
+  }
+  input.value = ''; selectedFile = null; selectedFileType = null; input.placeholder = "Написать сообщение...";
+  const replyId = replyToMessage ? replyToMessage.id : null; cancelReply();
+  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend, replyTo: replyId }) });
+  loadMessages();
+}
+</script>
+</body>
+</html>
