@@ -6,6 +6,9 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
 
+// Разрешаем отдавать файл для проверки Android
+app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
 // Файлы для сохранения данных
