@@ -102,3 +102,34 @@ body { background-color: #0a0a14; color: #fff; height: 100vh; display: flex; jus
   padding: 0 20px;
   font-style: italic;
 }
+/* Стили для кружочков (видеосообщений) */
+.video-circle {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #6e44ff;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(110, 68, 255, 0.5);
+  margin-bottom: 5px;
+  transition: transform 0.2s;
+}
+.video-circle:active {
+  transform: scale(0.95);
+}
+
+/* Модальное окно для полноэкранного видео */
+#video-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.9);
+  z-index: 999;
+  justify-content: center;
+  align-items: center;
+}
+#video-modal video {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 20px;
+}
