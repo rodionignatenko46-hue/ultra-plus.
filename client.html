@@ -363,4 +363,34 @@ async function loadMessages() {
       let content = '';
       if(m.reply_to) {
         const originalMsg = msgs.find(x => x.id === m.reply_to);
-        if(originalMsg) content += `<
+        if(originalMsg) content += `<div class="reply-quote">${originalMsg.text || 'Файл'}</div>`;
+      }
+      if(m.file_url) {
+        if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
+        else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+        else if(m.file_type.startsWith('audio/')) content += `<audio src="${m.file_url}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
+        else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
+      }
+      content += m.text;
+      let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
+      if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
+      div.innerHTML = html; box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
+}
+
+function setReply(id, text) { replyToMessage = { id, text }; document.getElementById('reply-text').innerText = text; document.getElementById('reply-preview').style.display = 'block'; document.getElementById('msg-input').focus(); }
+function cancelReply() { replyToMessage = null; document.getElementById('reply-preview').style.display = 'none'; }
+async function deleteMsg(id) { if(confirm("Удалить?")) { await fetch(`/api/message/${currentChatId}/${id}`, { method: 'DELETE' }); loadMessages(); } }
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text && !selectedFile) return;
+  let fileUrl = null, fileTypeToSend = null;
+  if(selectedFile) {
+    input.placeholder = "Загрузка...";
+    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'file', fileData: selectedFile, fileType: selectedFileType }) });
+    const data = await res.json();
+    if(data.success) { fileU
