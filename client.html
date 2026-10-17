@@ -35,14 +35,14 @@
   <div class="header">
     <h2>Ультра+</h2>
     <div class="header-icons">
-      <button onclick="findByPhone()">🔍</button>
+      <button onclick="findUser()">🔍</button>
       <button onclick="showProfile()">⚙️</button>
     </div>
   </div>
 
   <div id="chat-list"></div>
 
-  <button class="fab" onclick="findByPhone()">+</button>
+  <button class="fab" onclick="findUser()">+</button>
 
   <!-- Нижняя панель -->
   <div class="bottom-nav">
@@ -92,7 +92,7 @@
   </div>
 </div>
 
-<!-- Экран профиля (Детализированный) -->
+<!-- Экран профиля -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" onclick="closeProfile()" style="color: #fff; font-size: 24px;">←</button>
@@ -148,11 +148,18 @@ async function register() {
   currentUser = username; currentPhone = phone;
   localStorage.setItem('ultra_user', currentUser);
   localStorage.setItem('ultra_phone', currentPhone);
-  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone }) });
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display = 'flex';
-  loadChats();
-  setInterval(() => sendPulse(false), 10000);
+  
+  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone }) });
+  const data = await res.json();
+  
+  if(data.success) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    loadChats();
+    setInterval(() => sendPulse(false), 10000);
+  } else {
+    alert("Ошибка при регистрации: " + (data.error || "неизвестно"));
+  }
 }
 
 function logout() {
@@ -213,7 +220,7 @@ async function loadChats() {
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
   if(chats.length === 0) {
-    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findByPhone()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px;">Найти друга</button></div>`;
+    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px;">Найти друга</button></div>`;
   }
   chats.forEach(chat => {
     const div = document.createElement('div'); div.className = 'chat-item'; div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
@@ -222,16 +229,38 @@ async function loadChats() {
   });
 }
 
-async function findByPhone() {
-  const phone = prompt("Введите номер телефона друга:");
-  if(!phone) return;
-  const res = await fetch('/api/find-by-phone/' + encodeURIComponent(phone));
+// НОВАЯ ФУНКЦИЯ ПОИСКА
+async function findUser() {
+  const choice = prompt("Как искать друга? Напишите 1 для поиска по номеру, или 2 для поиска по @логину:");
+  if(!choice) return;
+  
+  let query = "";
+  let url = "";
+  
+  if(choice === '1') {
+    query = prompt("Введите номер телефона друга:");
+    if(!query) return;
+    url = '/api/find-by-phone/' + encodeURIComponent(query);
+  } else if(choice === '2') {
+    query = prompt("Введите @логин друга (без @):");
+    if(!query) return;
+    url = '/api/user/' + encodeURIComponent(query);
+  } else {
+    return alert("Выберите 1 или 2");
+  }
+
+  const res = await fetch(url);
   const data = await res.json();
+  
   if(!data) return alert("Пользователь не найден.");
-  if(data.username === currentUser) return alert("Это ваш номер!");
+  if(data.username === currentUser) return alert("Это вы!");
+  
   const chatId = [currentUser, data.username].sort().join('_');
+  
   await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: data.username, isGroup: false }) });
   await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: currentUser, isGroup: false }) });
+  
+  alert("Чат создан!");
   loadChats();
 }
 
@@ -272,7 +301,7 @@ function handleFileSelect(input) {
   reader.readAsDataURL(file);
 }
 
-// --- ЗАПИСЬ ГОЛОСОВЫХ (С таймером) ---
+// --- ЗАПИСЬ ГОЛОСОВЫХ ---
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
   const inputField = document.getElementById('msg-input');
@@ -300,13 +329,11 @@ async function toggleRecording() {
       isRecording = true;
       recordingSeconds = 0;
       
-      // Меняем интерфейс
       micBtn.classList.add('recording');
-      micBtn.innerText = '⏹️'; // Кнопка стоп
+      micBtn.innerText = '⏹️';
       inputField.placeholder = "Идет запись... 0:00";
-      inputField.disabled = true; // Блокируем текст
+      inputField.disabled = true;
       
-      // Запускаем таймер
       recordingTimer = setInterval(() => {
         recordingSeconds++;
         const mins = Math.floor(recordingSeconds / 60);
@@ -316,12 +343,10 @@ async function toggleRecording() {
 
     } catch(e) { alert("Нет доступа к микрофону. Разрешите доступ в настройках."); }
   } else {
-    // Останавливаем запись
     mediaRecorder.stop();
     isRecording = false;
     clearInterval(recordingTimer);
     
-    // Возвращаем интерфейс
     micBtn.classList.remove('recording');
     micBtn.innerText = '🎤';
     inputField.disabled = false;
@@ -340,23 +365,23 @@ async function loadMessages() {
     box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
 
     msgs.forEach(m => {
-      const isMe = m.from === currentUser;
+      const isMe = m.sender === currentUser; // ИСПРАВЛЕНО: в базе поле sender, а не from
       const div = document.createElement('div');
       div.className = `msg-container ${isMe ? 'my' : 'their'}`;
       const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      let readStatus = isMe ? (m.readBy.length > 1 ? ' ✓✓' : ' ✓') : '';
+      let readStatus = isMe ? (m.read_by.length > 1 ? ' ✓✓' : ' ✓') : '';
       
       let content = '';
-      if(m.replyTo) {
-        const originalMsg = msgs.find(x => x.id === m.replyTo);
+      if(m.reply_to) {
+        const originalMsg = msgs.find(x => x.id === m.reply_to);
         if(originalMsg) content += `<div class="reply-quote">${originalMsg.text || 'Файл'}</div>`;
       }
 
-      if(m.fileUrl) {
-        if(m.fileType.startsWith('image/')) content += `<img src="${m.fileUrl}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
-        else if(m.fileType.startsWith('video/')) content += `<video src="${m.fileUrl}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
-        else if(m.fileType.startsWith('audio/')) content += `<audio src="${m.fileUrl}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
-        else content += `<a href="${m.fileUrl}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
+      if(m.file_url) {
+        if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
+        else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+        else if(m.file_type.startsWith('audio/')) content += `<audio src="${m.file_url}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
+        else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
 
