@@ -96,13 +96,70 @@
 
 <script>
 let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
-let currentChatId = "", currentChatName = "", currentChatIsGroup = false, messageInterval, statusInterval;
+let currentChatId = "", currentChatName = "", messageInterval, statusInterval;
 let selectedFile = null, selectedFileType = null;
 let replyToMessage = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
 
+// --- УВЕДОМЛЕНИЯ ---
+let lastNotifiedMsgId = null;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playNotificationSound() {
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+  gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function showNotification(title, body) {
+  playNotificationSound();
+  if (Notification.permission === "granted") {
+    new Notification(title, { body: body, icon: "https://cdn-icons-png.flaticon.com/512/3212/3212608.png" });
+  }
+}
+
+// Фоновая проверка ВСЕХ чатов на новые сообщения
+async function checkAllChatsForNotifications() {
+  if (!currentUser || document.visibilityState !== 'visible') return;
+  
+  try {
+    const res = await fetch('/api/chats/' + currentUser);
+    const chats = await res.json();
+    
+    for (let chat of chats) {
+      // Не уведомляем о том чате, который сейчас открыт
+      if (chat.id === currentChatId) continue; 
+
+      const msgRes = await fetch(`/api/messages/${chat.id}?reader=${currentUser}`);
+      const msgs = await msgRes.json();
+      
+      if (msgs.length > 0) {
+        const lastMsg = msgs[msgs.length - 1];
+        // Если сообщение от другого человека и мы о нем еще не уведомляли
+        if (lastMsg.sender !== currentUser && lastMsg.id !== lastNotifiedMsgId) {
+          lastNotifiedMsgId = lastMsg.id;
+          showNotification("Новое сообщение в Ультра+", `@${lastMsg.sender}: ${lastMsg.text || 'Файл'}`);
+        }
+      }
+    }
+  } catch(e) {}
+}
+
 window.onload = () => {
+  // Запрашиваем разрешение на уведомления
+  if ("Notification" in window) {
+    Notification.requestPermission();
+  }
+
   const savedUser = localStorage.getItem('ultra_user');
   if(savedUser) {
     currentUser = savedUser;
@@ -113,10 +170,15 @@ window.onload = () => {
     document.getElementById('main-screen').style.display = 'flex';
     loadChats();
     setInterval(() => sendPulse(false), 10000);
+    
+    // Запускаем фоновую проверку уведомлений каждые 3 секунды
+    setInterval(checkAllChatsForNotifications, 3000);
   }
 };
 
 async function register() {
+  if ("Notification" in window) Notification.requestPermission();
+  
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const phone = document.getElementById('reg-phone').value.trim();
   if(!username || !phone) return alert("Введите логин и номер!");
@@ -130,6 +192,7 @@ async function register() {
     document.getElementById('main-screen').style.display = 'flex';
     loadChats();
     setInterval(() => sendPulse(false), 10000);
+    setInterval(checkAllChatsForNotifications, 3000);
   } else { alert("Ошибка: " + data.error); }
 }
 
@@ -332,17 +395,4 @@ async function sendMessage() {
   if(!text && !selectedFile) return;
   let fileUrl = null, fileTypeToSend = null;
   if(selectedFile) {
-    input.placeholder = "Загрузка...";
-    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'file', fileData: selectedFile, fileType: selectedFileType }) });
-    const data = await res.json();
-    if(data.success) { fileUrl = data.url; fileTypeToSend = selectedFileType; }
-    else { alert('Ошибка загрузки'); return; }
-  }
-  input.value = ''; selectedFile = null; selectedFileType = null; input.placeholder = "Написать сообщение...";
-  const replyId = replyToMessage ? replyToMessage.id : null; cancelReply();
-  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend, replyTo: replyId }) });
-  loadMessages();
-}
-</script>
-</body>
-</html>
+    input.p
