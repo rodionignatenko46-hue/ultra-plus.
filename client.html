@@ -9,36 +9,36 @@
 </head>
 <body>
 
-<!-- Экран входа -->
 <div id="auth-screen">
   <h1>Ультра+</h1>
-  <input id="reg-username" placeholder="Придумайте логин (без @)" />
+  <input id="reg-username" placeholder="Придумайте @логин" />
+  <input id="reg-phone" placeholder="Номер телефона" type="tel" />
   <input id="reg-avatar" placeholder="Ссылка на аватарку (необязательно)" />
   <button onclick="register()">Войти</button>
 </div>
 
-<!-- Основной экран -->
 <div id="main-screen">
   <div class="header">
     <h2 id="my-name">Мой профиль</h2>
     <div>
+      <button onclick="findByPhone()">🔍 Поиск</button>
       <button onclick="showNewGroup()">+ Группа</button>
-      <button onclick="showNewChat()">+ Чат</button>
       <button class="profile-btn" onclick="showProfile()">👤</button>
     </div>
   </div>
   <div id="chat-list"></div>
 </div>
 
-<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
     <div class="chat-avatar" id="chat-head-avatar"></div>
-    <h2 id="chat-title">Чат</h2>
+    <div>
+      <h2 id="chat-title" style="font-size:16px;">Чат</h2>
+      <span id="chat-status" style="font-size:12px; color:#888;">в сети</span>
+    </div>
   </div>
   <div id="messages"></div>
-  
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()">📎</button>
@@ -48,7 +48,6 @@
   </div>
 </div>
 
-<!-- Экран профиля -->
 <div id="profile-screen">
   <div class="profile-header">
     <button class="back-btn" onclick="closeProfile()">←</button>
@@ -57,8 +56,12 @@
   <div class="profile-info">
     <div class="profile-avatar" id="prof-avatar"></div>
     <div class="profile-name" id="prof-name"></div>
+    <div class="profile-phone" id="prof-phone"></div>
   </div>
   <input id="prof-new-avatar" class="profile-input" placeholder="Новая ссылка на аватарку">
+  <label style="display:block; margin-bottom:15px; cursor:pointer;">
+    <input type="checkbox" id="prof-hide-phone" style="width:20px; height:20px; vertical-align:middle; margin-right:10px;"> Скрыть номер телефона
+  </label>
   <button class="profile-save-btn" onclick="saveProfile()">Сохранить</button>
 </div>
 
@@ -80,9 +83,11 @@ window.onload = () => {
 
 async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
+  const phone = document.getElementById('reg-phone').value.trim();
   const avatar = document.getElementById('reg-avatar').value.trim();
-  if(!username) return alert("Введите логин!");
-  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, avatar }) });
+  if(!username || !phone) return alert("Введите логин и номер!");
+  
+  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, avatar }) });
   if((await res.json()).success) {
     currentUser = username;
     localStorage.setItem('ultra_user', currentUser);
@@ -98,23 +103,40 @@ async function loadChats() {
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-  if(chats.length === 0) list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов.</p>';
+  
+  if(chats.length === 0) {
+    list.innerHTML = `
+      <div style="text-align:center; margin-top: 50px; padding: 20px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/3212/3212608.png" style="width: 80px; opacity: 0.5; margin-bottom: 20px;">
+        <h3 style="color: #fff; margin-bottom: 10px;">Здесь пока пусто</h3>
+        <p style="color: #888; margin-bottom: 20px;">Найдите друга по номеру или создайте группу</p>
+        <button onclick="findByPhone()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer;">Найти друга</button>
+      </div>
+    `;
+  }
+  
   chats.forEach(chat => {
     const div = document.createElement('div');
     div.className = 'chat-item';
     div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    div.innerHTML = `<div class="chat-avatar">${chat.isGroup ? '👥' : chat.name[0].toUpperCase()}</div><div class="chat-info"><div class="chat-name">${chat.name}</div></div>`;
+    div.innerHTML = `<div class="chat-avatar">${chat.isGroup ? '👥' : chat.name[0].toUpperCase()}</div><div class="chat-info"><div class="chat-name">${chat.name}</div><div class="chat-preview">Нажмите, чтобы открыть</div></div>`;
     list.appendChild(div);
   });
 }
 
-async function showNewChat() {
-  const toUser = prompt("Введите логин собеседника:");
-  if(!toUser || toUser === currentUser) return;
-  if(!(await (await fetch('/api/user/' + toUser)).json())) return alert("Пользователь не найден!");
-  const chatId = [currentUser, toUser].sort().join('_');
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: toUser }) });
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: toUser, chatId, name: currentUser }) });
+async function findByPhone() {
+  const phone = prompt("Введите номер телефона друга:");
+  if(!phone) return;
+  const res = await fetch('/api/find-by-phone/' + phone);
+  const data = await res.json();
+  
+  if(!data) return alert("Пользователь с таким номером не найден.");
+  if(data.username === currentUser) return alert("Это ваш номер!");
+  
+  const chatId = [currentUser, data.username].sort().join('_');
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: data.username, isGroup: false }) });
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: currentUser, isGroup: false }) });
+  alert("Чат создан!");
   loadChats();
 }
 
@@ -131,6 +153,8 @@ function openChat(id, name, isGroup) {
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('chat-title').innerText = name;
   document.getElementById('chat-head-avatar').innerHTML = isGroup ? '👥' : name[0].toUpperCase();
+  document.getElementById('chat-status').innerText = isGroup ? 'группа' : 'был(а) недавно';
+  
   loadMessages();
   if(messageInterval) clearInterval(messageInterval);
   messageInterval = setInterval(loadMessages, 1000);
@@ -143,11 +167,17 @@ function closeChat() {
   loadChats();
 }
 
-function showProfile() {
+async function showProfile() {
   document.getElementById('main-screen').style.display = 'none';
   document.getElementById('profile-screen').style.display = 'flex';
   document.getElementById('prof-name').innerText = '@' + currentUser;
+  
+  const res = await fetch('/api/user/' + currentUser);
+  const data = await res.json();
+  
+  document.getElementById('prof-phone').innerText = data.phone === 'Скрыт' ? 'Номер скрыт' : data.phone;
   document.getElementById('prof-avatar').innerHTML = currentUser[0].toUpperCase();
+  document.getElementById('prof-hide-phone').checked = data.phone === 'Скрыт';
 }
 function closeProfile() {
   document.getElementById('profile-screen').style.display = 'none';
@@ -155,9 +185,9 @@ function closeProfile() {
 }
 async function saveProfile() {
   const newAv = document.getElementById('prof-new-avatar').value.trim();
-  if(!newAv) return;
-  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: newAv }) });
-  alert("Аватарка обновлена!");
+  const hidePhone = document.getElementById('prof-hide-phone').checked;
+  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: newAv || undefined, hidePhone }) });
+  alert("Настройки сохранены!");
   closeProfile();
 }
 
@@ -173,7 +203,6 @@ function handleFileSelect(input) {
   reader.readAsDataURL(file);
 }
 
-// Запись голосового сообщения
 async function recordVoice() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -186,19 +215,19 @@ async function recordVoice() {
       reader.onload = async function(e) {
         selectedFile = e.target.result;
         selectedFileType = 'audio/webm';
-        alert("Голосовое записано! Нажмите ➤ чтобы отправить.");
+        document.getElementById('msg-input').placeholder = "Голосовое записано!";
       };
       reader.readAsDataURL(audioBlob);
     };
     mediaRecorder.start();
-    document.getElementById('mic-btn').style.color = 'red'; // Индикатор записи
+    document.getElementById('mic-btn').style.color = 'red';
     setTimeout(() => {
       if(mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
         document.getElementById('mic-btn').style.color = '#3390ec';
         stream.getTracks().forEach(track => track.stop());
       }
-    }, 5000); // Запись 5 секунд (для теста)
+    }, 5000);
   } catch(e) { alert("Нет доступа к микрофону"); }
 }
 
