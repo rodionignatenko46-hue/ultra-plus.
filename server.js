@@ -5,21 +5,15 @@ const fs = require('fs');
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
-
-// Разрешаем отдавать файл для проверки Android
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
-
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
-// Файлы для сохранения данных
 const DB_USERS = path.join(__dirname, 'users.json');
 const DB_MSGS = path.join(__dirname, 'messages.json');
 
-// Загрузка данных при старте
 let users = fs.existsSync(DB_USERS) ? JSON.parse(fs.readFileSync(DB_USERS)) : {};
 let messages = fs.existsSync(DB_MSGS) ? JSON.parse(fs.readFileSync(DB_MSGS)) : {};
 
-// Функция сохранения
 function saveData() {
   fs.writeFileSync(DB_USERS, JSON.stringify(users, null, 2));
   fs.writeFileSync(DB_MSGS, JSON.stringify(messages, null, 2));
@@ -27,19 +21,37 @@ function saveData() {
 
 // Регистрация
 app.post('/api/register', (req, res) => {
-  const { username, avatar } = req.body;
+  const { username, phone, avatar, hidePhone } = req.body;
   if (!users[username]) {
-    users[username] = { avatar: avatar || '', chats: [] };
-  } else if (avatar) {
-    users[username].avatar = avatar;
+    users[username] = { phone: phone || '', avatar: avatar || '', hidePhone: hidePhone || false, chats: [] };
+  } else {
+    if (phone) users[username].phone = phone;
+    if (avatar !== undefined) users[username].avatar = avatar;
+    if (hidePhone !== undefined) users[username].hidePhone = hidePhone;
   }
   saveData();
   res.json({ success: true, user: users[username] });
 });
 
-// Получить профиль
+// Поиск по номеру
+app.get('/api/find-by-phone/:phone', (req, res) => {
+  const phone = req.params.phone;
+  for (const [username, data] of Object.entries(users)) {
+    if (data.phone === phone) {
+      return res.json({ username, avatar: data.avatar, hidePhone: data.hidePhone });
+    }
+  }
+  res.json(null);
+});
+
+// Получить профиль (с учетом скрытия номера)
 app.get('/api/user/:username', (req, res) => {
-  res.json(users[req.params.username] || null);
+  const u = users[req.params.username];
+  if (u) {
+    res.json({ username: req.params.username, phone: u.hidePhone ? 'Скрыт' : u.phone, avatar: u.avatar });
+  } else {
+    res.json(null);
+  }
 });
 
 // Создать группу
@@ -53,12 +65,10 @@ app.post('/api/group', (req, res) => {
   res.json({ success: true, groupId, name: groupName });
 });
 
-// Получить чаты
 app.get('/api/chats/:username', (req, res) => {
   res.json(users[req.params.username]?.chats || []);
 });
 
-// Добавить чат
 app.post('/api/addChat', (req, res) => {
   const { username, chatId, name, isGroup } = req.body;
   const u = users[username];
@@ -69,21 +79,16 @@ app.post('/api/addChat', (req, res) => {
   res.json({ success: true });
 });
 
-// Отправка сообщения
 app.post('/api/message', (req, res) => {
   const { chatId, from, text, fileData, fileType } = req.body;
   if (!messages[chatId]) messages[chatId] = [];
   
   const msgId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-  messages[chatId].push({ 
-    id: msgId, from, text: text || '', fileData: fileData || null, fileType: fileType || null, 
-    time: Date.now(), readBy: [from] 
-  });
+  messages[chatId].push({ id: msgId, from, text: text || '', fileData: fileData || null, fileType: fileType || null, time: Date.now(), readBy: [from] });
   saveData();
   res.json({ success: true, id: msgId });
 });
 
-// Получение сообщений и отметка о прочтении
 app.get('/api/messages/:chatId', (req, res) => {
   const { chatId } = req.params;
   const { reader } = req.query;
@@ -92,10 +97,7 @@ app.get('/api/messages/:chatId', (req, res) => {
   let updated = false;
   if (reader) {
     msgs.forEach(m => {
-      if (m.from !== reader && !m.readBy.includes(reader)) {
-        m.readBy.push(reader);
-        updated = true;
-      }
+      if (m.from !== reader && !m.readBy.includes(reader)) { m.readBy.push(reader); updated = true; }
     });
     if (updated) saveData();
   }
