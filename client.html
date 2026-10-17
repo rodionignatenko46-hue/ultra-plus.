@@ -65,7 +65,7 @@
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
     <button onclick="toggleRecording()" id="mic-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
-    <input id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
+    <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
@@ -218,40 +218,68 @@ function handleFileSelect(input) {
   reader.onload = function(e) { selectedFile = e.target.result; selectedFileType = file.type; document.getElementById('msg-input').placeholder = "Файл готов!"; };
   reader.readAsDataURL(file);
 }
+
+// ИСПРАВЛЕННАЯ ЗАПИСЬ ГОЛОСОВЫХ
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
   const inputField = document.getElementById('msg-input');
+  
   if(!isRecording) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
+      // Используем формат, который точно понимает Supabase и браузеры
+      const options = { mimeType: 'audio/webm' }; 
+      mediaRecorder = new MediaRecorder(stream, options);
       audioChunks = [];
+      
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onload = async function(e) {
-          selectedFile = e.target.result; selectedFileType = 'audio/webm';
-          inputField.placeholder = "Голосовое готово!"; inputField.focus();
+          inputField.placeholder = "Отправка голосового...";
+          // Сразу отправляем в облако
+          const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'voice.webm', fileData: e.target.result, fileType: 'audio/webm' }) });
+          const data = await res.json();
+          
+          if(data.success) {
+            await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text: '', fileUrl: data.url, fileType: 'audio/webm', replyTo: null }) });
+            loadMessages();
+            inputField.placeholder = "Написать сообщение...";
+          } else {
+            alert("Ошибка загрузки голосового: " + data.error);
+            inputField.placeholder = "Написать сообщение...";
+          }
         };
         reader.readAsDataURL(audioBlob);
       };
-      mediaRecorder.start(); isRecording = true; recordingSeconds = 0;
-      micBtn.classList.add('recording'); micBtn.innerText = '⏹️';
-      inputField.placeholder = "Идет запись... 0:00"; inputField.disabled = true;
+      
+      mediaRecorder.start();
+      isRecording = true;
+      recordingSeconds = 0;
+      micBtn.classList.add('recording');
+      micBtn.innerText = '⏹️';
+      inputField.placeholder = "Идет запись... 0:00";
+      inputField.disabled = true;
+      
       recordingTimer = setInterval(() => {
         recordingSeconds++;
         const mins = Math.floor(recordingSeconds / 60);
         const secs = recordingSeconds % 60;
         inputField.placeholder = `Идет запись... ${mins}:${secs < 10 ? '0' : ''}${secs}`;
       }, 1000);
+
     } catch(e) { alert("Нет доступа к микрофону."); }
   } else {
-    mediaRecorder.stop(); isRecording = false; clearInterval(recordingTimer);
-    micBtn.classList.remove('recording'); micBtn.innerText = '🎤';
-    inputField.disabled = false; inputField.placeholder = "Написать сообщение...";
+    mediaRecorder.stop();
+    isRecording = false;
+    clearInterval(recordingTimer);
+    micBtn.classList.remove('recording');
+    micBtn.innerText = '🎤';
+    inputField.disabled = false;
   }
 }
+
 async function loadMessages() {
   if(!currentChatId) return;
   try {
