@@ -8,7 +8,6 @@
 </head>
 <body>
 
-<!-- Экран входа -->
 <div id="auth-screen">
   <h1>Ультра+</h1>
   <input id="reg-username" placeholder="Придумайте логин (без @)" />
@@ -16,7 +15,6 @@
   <button onclick="register()">Войти</button>
 </div>
 
-<!-- Основной экран -->
 <div id="main-screen">
   <div class="header">
     <h2 id="my-name">Мой профиль</h2>
@@ -26,7 +24,6 @@
   <div id="chat-list"></div>
 </div>
 
-<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
@@ -34,11 +31,9 @@
     <h2 id="chat-title">Чат</h2>
   </div>
   <div id="messages"></div>
-  
   <div class="input-area">
-    <!-- Скрытый input для файлов -->
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
-    <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; font-size: 24px;">📎</button>
+    <button onclick="document.getElementById('file-input').click()">📎</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
     <button onclick="sendMessage()">➤</button>
   </div>
@@ -48,17 +43,32 @@
 let currentUser = "", currentChatId = "", currentChatName = "", messageInterval;
 let selectedFile = null, selectedFileType = null;
 
+// Проверка: если логин уже сохранен в браузере, входим сразу
+window.onload = () => {
+  const savedUser = localStorage.getItem('ultra_user');
+  if(savedUser) {
+    currentUser = savedUser;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    document.getElementById('my-name').innerText = '@' + currentUser;
+    loadChats();
+  }
+};
+
 async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const avatar = document.getElementById('reg-avatar').value.trim();
   if(!username) return alert("Введите логин!");
+  
   const res = await fetch('/api/register', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username, avatar, pubkey: "dummy" })
+    body: JSON.stringify({ username, avatar })
   });
   const data = await res.json();
+  
   if(data.success) {
     currentUser = username;
+    localStorage.setItem('ultra_user', currentUser); // ЗАПОМИНАЕМ ЛОГИН
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('my-name').innerText = '@' + currentUser;
@@ -72,6 +82,7 @@ async function loadChats() {
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
   if(chats.length === 0) list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите "+ Чат"</p>';
+  
   chats.forEach(chat => {
     const div = document.createElement('div');
     div.className = 'chat-item';
@@ -107,9 +118,10 @@ function openChat(id, name, isGroup) {
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('chat-title').innerText = name;
   document.getElementById('chat-head-avatar').innerHTML = isGroup ? '👥' : name[0].toUpperCase();
+  
   loadMessages();
   if(messageInterval) clearInterval(messageInterval);
-  messageInterval = setInterval(loadMessages, 2000);
+  messageInterval = setInterval(loadMessages, 1000); // Ускорено до 1 секунды!
 }
 
 function closeChat() {
@@ -119,60 +131,56 @@ function closeChat() {
   loadChats();
 }
 
-// Обработка выбора файла
 function handleFileSelect(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 10 * 1024 * 1024) return alert("Файл слишком большой (макс 10МБ)");
-  
+  if(file.size > 10 * 1024 * 1024) return alert("Файл больше 10МБ");
   const reader = new FileReader();
   reader.onload = function(e) {
-    selectedFile = e.target.result; // base64
+    selectedFile = e.target.result;
     selectedFileType = file.type;
-    alert("Файл прикреплен! Нажмите Отправить.");
+    document.getElementById('msg-input').placeholder = "Файл прикреплен! Нажмите ➤";
   };
   reader.readAsDataURL(file);
 }
 
 async function loadMessages() {
   if(!currentChatId) return;
-  // Передаем ?reader=логин, чтобы сервер отметил прочитанным
-  const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
-  const msgs = await res.json();
-  const box = document.getElementById('messages');
-  box.innerHTML = '';
-
-  msgs.forEach(m => {
-    const isMe = m.from === currentUser;
-    const div = document.createElement('div');
-    div.className = `msg-bubble ${isMe ? 'msg-my' : 'msg-their'}`;
+  try {
+    const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
+    const msgs = await res.json();
+    const box = document.getElementById('messages');
     
-    // Время
-    const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    // Проверяем, изменилось ли количество сообщений (чтобы не мигало)
+    if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
     
-    // Галочки прочтения (только для своих сообщений)
-    let readStatus = '';
-    if(isMe) {
-      // Если в чате больше 1 человека (группа) или собеседник прочитал
-      readStatus = m.readBy.length > 1 ? ' ✓✓' : ' ✓';
-    }
+    box.innerHTML = '';
+    box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
 
-    let content = '';
-    if(m.fileData) {
-      if(m.fileType.startsWith('image/')) content += `<img src="${m.fileData}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
-      else if(m.fileType.startsWith('video/')) content += `<video src="${m.fileData}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
-      else content += `<a href="${m.fileData}" download="file" style="color:#fff;">📄 Скачать файл</a><br>`;
-    }
-    content += m.text;
+    msgs.forEach(m => {
+      const isMe = m.from === currentUser;
+      const div = document.createElement('div');
+      div.className = `msg-bubble ${isMe ? 'msg-my' : 'msg-their'}`;
+      const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      let readStatus = isMe ? (m.readBy.length > 1 ? ' ✓✓' : ' ✓') : '';
 
-    div.innerHTML = `
-      ${(!isMe && currentChatId.startsWith('group_') ? `<b style="font-size:12px; color:#3390ec; display:block;">@${m.from}</b>` : '')}
-      <div>${content}</div>
-      <div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div>
-    `;
-    box.appendChild(div);
-  });
-  box.scrollTop = box.scrollHeight;
+      let content = '';
+      if(m.fileData) {
+        if(m.fileType.startsWith('image/')) content += `<img src="${m.fileData}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
+        else if(m.fileType.startsWith('video/')) content += `<video src="${m.fileData}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+        else content += `<a href="${m.fileData}" download="file" style="color:#fff;">📄 Скачать файл</a><br>`;
+      }
+      content += m.text;
+
+      div.innerHTML = `
+        ${(!isMe && currentChatId.startsWith('group_') ? `<b style="font-size:12px; color:#3390ec; display:block;">@${m.from}</b>` : '')}
+        <div>${content}</div>
+        <div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div>
+      `;
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
 }
 
 async function sendMessage() {
@@ -180,14 +188,20 @@ async function sendMessage() {
   const text = input.value.trim();
   if(!text && !selectedFile) return;
 
-  await fetch('/api/message', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: selectedFile, fileType: selectedFileType })
-  });
+  // Мгновенно очищаем поле и отправляем
   input.value = '';
+  const tempFile = selectedFile;
+  const tempType = selectedFileType;
   selectedFile = null;
   selectedFileType = null;
-  loadMessages();
+  input.placeholder = "Написать сообщение...";
+
+  await fetch('/api/message', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: tempFile, fileType: tempType })
+  });
+  
+  loadMessages(); // Сразу обновляем
 }
 </script>
 </body>
