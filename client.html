@@ -9,13 +9,28 @@
 </head>
 <body>
 
+<!-- Экран входа (Авторизация) -->
 <div id="auth-screen">
+  <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
-  <input id="reg-username" placeholder="Придумайте @логин" />
-  <input id="reg-phone" placeholder="Номер телефона" type="tel" />
-  <button onclick="register()">Войти</button>
+  <p class="auth-subtitle">Твой космический мессенджер</p>
+  
+  <div class="input-group">
+    <label>Придумайте ваш @логин</label>
+    <input id="reg-username" placeholder="Например: lorion4ik" autocomplete="off" />
+  </div>
+
+  <div class="input-group">
+    <label>Номер телефона</label>
+    <input id="reg-phone" placeholder="+7 (999) 000-00-00" type="tel" />
+  </div>
+
+  <button onclick="register()">Создать аккаунт</button>
+  
+  <p class="auth-footer">Нажимая «Войти», вы соглашаетесь с правилами Ультра+</p>
 </div>
 
+<!-- Главный экран (Чаты) -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -24,16 +39,33 @@
       <button onclick="showProfile()">⚙️</button>
     </div>
   </div>
+
   <div id="chat-list"></div>
+
   <button class="fab" onclick="findByPhone()">+</button>
+
+  <!-- Нижняя панель -->
   <div class="bottom-nav">
-    <div class="nav-item active"><span class="nav-icon">💬</span><span>Чаты</span></div>
-    <div class="nav-item"><span class="nav-icon">📞</span><span>Звонки</span></div>
-    <div class="nav-item"><span class="nav-icon">👥</span><span>Контакты</span></div>
-    <div class="nav-item" onclick="showProfile()"><span class="nav-icon">👤</span><span>Профиль</span></div>
+    <div class="nav-item active">
+      <span class="nav-icon">💬</span>
+      <span>Чаты</span>
+    </div>
+    <div class="nav-item" onclick="alert('Звонки скоро появятся!')">
+      <span class="nav-icon">📞</span>
+      <span>Звонки</span>
+    </div>
+    <div class="nav-item" onclick="alert('Контакты скоро появятся!')">
+      <span class="nav-icon">👥</span>
+      <span>Контакты</span>
+    </div>
+    <div class="nav-item" onclick="showProfile()">
+      <span class="nav-icon">👤</span>
+      <span>Профиль</span>
+    </div>
   </div>
 </div>
 
+<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
@@ -60,6 +92,7 @@
   </div>
 </div>
 
+<!-- Экран профиля (Детализированный) -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" onclick="closeProfile()" style="color: #fff; font-size: 24px;">←</button>
@@ -71,9 +104,18 @@
     <h2 id="prof-name" class="profile-name">@...</h2>
     <div id="prof-phone" class="profile-phone">+...</div>
   </div>
+
   <div class="profile-settings">
-    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()"><span>📷 Выбрать фото</span></div>
-    <div class="setting-item" onclick="toggleHidePhone()"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
+    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()">
+      <span>📷 Выбрать фото</span>
+    </div>
+    <div class="setting-item" onclick="toggleHidePhone()">
+      <span>🔒 Скрыть номер</span>
+      <span id="hide-phone-status" style="color: #3390ec;">Выкл</span>
+    </div>
+    <div class="setting-item" onclick="logout()">
+      <span style="color: #ff4444;">🚪 Выйти из аккаунта</span>
+    </div>
   </div>
 </div>
 
@@ -110,6 +152,13 @@ async function register() {
   document.getElementById('main-screen').style.display = 'flex';
   loadChats();
   setInterval(() => sendPulse(false), 10000);
+}
+
+function logout() {
+  if(confirm("Вы уверены, что хотите выйти?")) {
+    localStorage.clear();
+    location.reload();
+  }
 }
 
 function sendPulse(typing) {
@@ -167,7 +216,7 @@ async function loadChats() {
   }
   chats.forEach(chat => {
     const div = document.createElement('div'); div.className = 'chat-item'; div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    div.innerHTML = `<div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div><div class="chat-info"><div class="chat-name">@${chat.name}</div></div>`;
+    div.innerHTML = `<div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div><div class="chat-info"><div class="chat-name">@${chat.name}</div><div class="chat-preview">Нажмите, чтобы открыть</div></div>`;
     list.appendChild(div);
   });
 }
