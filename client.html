@@ -9,7 +9,6 @@
 </head>
 <body>
 
-<!-- Экран входа (Авторизация) -->
 <div id="auth-screen">
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
@@ -30,7 +29,6 @@
   <p class="auth-footer">Нажимая «Войти», вы соглашаетесь с правилами Ультра+</p>
 </div>
 
-<!-- Главный экран (Чаты) -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -44,7 +42,6 @@
 
   <button class="fab" onclick="findUser()">+</button>
 
-  <!-- Нижняя панель -->
   <div class="bottom-nav">
     <div class="nav-item active">
       <span class="nav-icon">💬</span>
@@ -65,7 +62,6 @@
   </div>
 </div>
 
-<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
@@ -77,7 +73,6 @@
   </div>
   <div id="messages"></div>
   
-  <!-- Цитата для ответа -->
   <div id="reply-preview" style="display:none; background:#2c2c2c; padding:10px; border-left:3px solid #00d4ff; margin: 0 10px; border-radius:5px; font-size:12px; color:#ccc; position: relative;">
     <span id="reply-text"></span>
     <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:red;">✖</button>
@@ -92,7 +87,6 @@
   </div>
 </div>
 
-<!-- Экран профиля -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" onclick="closeProfile()" style="color: #fff; font-size: 24px;">←</button>
@@ -137,7 +131,7 @@ window.onload = () => {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     loadChats();
-    setInterval(() => sendPulse(false), 10000); // Отправляем пульс каждые 10 сек
+    setInterval(() => sendPulse(false), 10000);
   }
 };
 
@@ -229,7 +223,6 @@ async function loadChats() {
   });
 }
 
-// НОВАЯ ФУНКЦИЯ ПОИСКА
 async function findUser() {
   const choice = prompt("Как искать друга? Напишите 1 для поиска по номеру, или 2 для поиска по @логину:");
   if(!choice) return;
@@ -251,6 +244,9 @@ async function findUser() {
 
   const res = await fetch(url);
   const data = await res.json();
+  
+  // ОТЛАДКА: Показываем, что пришло с сервера
+  alert("ОТВЕТ СЕРВЕРА: " + JSON.stringify(data));
   
   if(!data) return alert("Пользователь не найден.");
   if(data.username === currentUser) return alert("Это вы!");
@@ -301,7 +297,6 @@ function handleFileSelect(input) {
   reader.readAsDataURL(file);
 }
 
-// --- ЗАПИСЬ ГОЛОСОВЫХ ---
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
   const inputField = document.getElementById('msg-input');
@@ -354,7 +349,6 @@ async function toggleRecording() {
   }
 }
 
-// --- СООБЩЕНИЯ ---
 async function loadMessages() {
   if(!currentChatId) return;
   try {
@@ -365,7 +359,7 @@ async function loadMessages() {
     box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
 
     msgs.forEach(m => {
-      const isMe = m.sender === currentUser; // ИСПРАВЛЕНО: в базе поле sender, а не from
+      const isMe = m.sender === currentUser;
       const div = document.createElement('div');
       div.className = `msg-container ${isMe ? 'my' : 'their'}`;
       const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
