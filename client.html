@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ультра+</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- Экран входа -->
 <div id="auth-screen">
   <h1>Ультра+</h1>
   <input id="reg-username" placeholder="Придумайте логин (без @)" />
@@ -15,6 +17,7 @@
   <button onclick="register()">Войти</button>
 </div>
 
+<!-- Основной экран -->
 <div id="main-screen">
   <div class="header">
     <h2 id="my-name">Мой профиль</h2>
@@ -24,6 +27,7 @@
   <div id="chat-list"></div>
 </div>
 
+<!-- Экран чата -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
@@ -31,6 +35,7 @@
     <h2 id="chat-title">Чат</h2>
   </div>
   <div id="messages"></div>
+  
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()">📎</button>
@@ -121,7 +126,7 @@ function openChat(id, name, isGroup) {
   
   loadMessages();
   if(messageInterval) clearInterval(messageInterval);
-  messageInterval = setInterval(loadMessages, 1000); // Ускорено до 1 секунды!
+  messageInterval = setInterval(loadMessages, 1000); // Проверка каждую секунду
 }
 
 function closeChat() {
@@ -151,7 +156,6 @@ async function loadMessages() {
     const msgs = await res.json();
     const box = document.getElementById('messages');
     
-    // Проверяем, изменилось ли количество сообщений (чтобы не мигало)
     if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
     
     box.innerHTML = '';
@@ -188,7 +192,6 @@ async function sendMessage() {
   const text = input.value.trim();
   if(!text && !selectedFile) return;
 
-  // Мгновенно очищаем поле и отправляем
   input.value = '';
   const tempFile = selectedFile;
   const tempType = selectedFileType;
@@ -201,7 +204,7 @@ async function sendMessage() {
     body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: tempFile, fileType: tempType })
   });
   
-  loadMessages(); // Сразу обновляем
+  loadMessages();
 }
 </script>
 </body>
