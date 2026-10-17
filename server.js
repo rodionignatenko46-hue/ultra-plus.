@@ -1,70 +1,45 @@
 const express = require('express');
-const http = require('http');
-const { WebSocketServer } = require('ws');
 const path = require('path');
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-app.use(express.static(__dirname)); 
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'client.html'));
 });
 
-const peers = new Map();
+// Хранилище сообщений и ключей
+const messages = {}; 
+const keys = {};
 
-wss.on('connection', (ws) => {
-  let myKey = null;
+// 1. Регистрация ключа
+app.post('/api/register', (req, res) => {
+  const { id, pubkey } = req.body;
+  keys[id] = pubkey;
+  res.json({ success: true });
+});
 
-  ws.on('message', (raw) => {
-    let msg;
-    try { msg = JSON.parse(raw); } catch { return; }
+// 2. Получение ключа собеседника
+app.get('/api/key/:id', (req, res) => {
+  res.json({ pubkey: keys[req.params.id] || null });
+});
 
-    if (msg.type === 'register') {
-      myKey = msg.pubkey;
-      peers.set(myKey, ws);
-      ws.send(JSON.stringify({ type: 'registered', pubkey: myKey }));
-      return;
-    }
+// 3. Отправка сообщения
+app.post('/api/send', (req, res) => {
+  const { to, from, key, nonce, ciphertext } = req.body;
+  if (!messages[to]) messages[to] = [];
+  messages[to].push({ from, key, nonce, ciphertext, timestamp: Date.now() });
+  res.json({ success: true });
+});
 
-    // Запрос публичного ключа собеседника
-    if (msg.type === 'getKey') {
-      const targetWs = peers.get(msg.to);
-      if (targetWs) {
-        // Просим собеседника прислать его ключ
-        targetWs.send(JSON.stringify({ type: 'askKey', from: myKey }));
-      }
-    }
-
-    // Ответ с публичным ключом
-    if (msg.type === 'sendKey') {
-      const targetWs = peers.get(msg.to);
-      if (targetWs) {
-        targetWs.send(JSON.stringify({ type: 'keyResponse', from: myKey, key: msg.key }));
-      }
-    }
-
-    if (msg.type === 'send') {
-      const target = peers.get(msg.to);
-      if (target && target.readyState === 1) {
-        target.send(JSON.stringify({
-          type: 'msg', from: myKey, nonce: msg.nonce, ciphertext: msg.ciphertext
-        }));
-        ws.send(JSON.stringify({ type: 'delivered' }));
-      } else {
-        ws.send(JSON.stringify({ type: 'offline' }));
-      }
-    }
-  });
-
-  ws.on('close', () => {
-    if (myKey && peers.get(myKey) === ws) peers.delete(myKey);
-  });
+// 4. Получение новых сообщений
+app.get('/api/messages/:id', (req, res) => {
+  const id = req.params.id;
+  const userMessages = messages[id] || [];
+  messages[id] = []; // Очищаем после прочтения
+  res.json(userMessages);
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log('Сервер Ультра+ запущен на порту ' + PORT);
-});
+app.listen(PORT, () => console.log('Сервер запущен на порту ' + PORT));
