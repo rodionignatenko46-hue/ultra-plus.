@@ -9,6 +9,36 @@
   <style>
     html, body { height: 100%; overflow: hidden; }
     #chat-screen, #main-screen, #auth-screen { height: 100dvh; }
+    
+    /* Стили для кружочков */
+    .video-circle {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #6e44ff;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(110, 68, 255, 0.5);
+      margin-bottom: 5px;
+      transition: transform 0.2s;
+    }
+    .video-circle:active { transform: scale(0.95); }
+
+    /* Модальное окно */
+    #video-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+    }
+    #video-modal video {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 20px;
+    }
   </style>
 </head>
 <body>
@@ -67,7 +97,7 @@
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
-    <!-- НОВАЯ КНОПКА КАМЕРЫ -->
+    <!-- Кнопка видео -->
     <button onclick="toggleVideoRecording()" id="video-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📹</button>
     <button onclick="toggleRecording()" id="mic-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
@@ -97,8 +127,8 @@
 </div>
 
 <!-- Модальное окно для полноэкранного видео -->
-<div id="video-modal" onclick="this.style.display='none'" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 999; justify-content: center; align-items: center;">
-  <video id="fullscreen-video" controls autoplay style="max-width: 90%; max-height: 90%; border-radius: 20px;"></video>
+<div id="video-modal" onclick="this.style.display='none'">
+  <video id="fullscreen-video" controls autoplay></video>
 </div>
 
 <script>
@@ -369,8 +399,4 @@ async function loadMessages() {
         else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
-      let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
-      if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
-      div.innerHTML = html; box.appendChild(div);
-    });
-    box.scrollTop = box.scrollHeigh
+  
