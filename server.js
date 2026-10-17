@@ -62,9 +62,9 @@ app.post('/api/upload', async (req, res) => {
     const { fileName, fileData, fileType } = req.body;
     const base64Data = fileData.replace(/^data:.*?;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    const { data, error } = await supabase.storage.from('ultra-files').upload(`chat/${Date.now()}_${fileName}`, buffer, { contentType: fileType, upsert: true });
+    const { data, error } = await supabase.storage.from('ultra-filse').upload(`chat/${Date.now()}_${fileName}`, buffer, { contentType: fileType, upsert: true });
     if (error) throw error;
-    const finalUrl = supabase.storage.from('ultra-files').getPublicUrl(data.path).data.publicUrl;
+    const finalUrl = supabase.storage.from('ultra-filse').getPublicUrl(data.path).data.publicUrl;
     res.json({ success: true, url: finalUrl });
   } catch (err) {
     res.json({ success: false, error: err.message });
