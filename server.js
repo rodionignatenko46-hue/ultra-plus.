@@ -19,7 +19,7 @@ app.post('/api/register', async (req, res) => {
   const { username, phone, avatar, hidePhone } = req.body;
   const { data: existing } = await supabase.from('users').select('*').eq('username', username).single();
   if (!existing) {
-    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false, chats: [] }]);
+    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false }]);
   } else {
     let updateData = {};
     if (phone) updateData.phone = phone;
