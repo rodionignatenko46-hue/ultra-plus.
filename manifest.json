@@ -1,0 +1,10 @@
+
+
+{
+  "name": "Ультра+",
+  "short_name": "Ультра+",
+  "start_url": "/client.html",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111"
+}

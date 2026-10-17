@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Ультра+</title></head>
+<body>
+<h3>Ультра+</h3>
+<div>Мой ID: <code id="myid">Генерация...</code></div>
+<input id="to" placeholder="ID получателя" style="width: 300px;">
+<br><br>
+<textarea id="text" placeholder="Сообщение" style="width: 300px; height: 80px;"></textarea>
+<br><br>
+<button id="send">Отправить</button>
+<pre id="log" style="background: #eee; padding: 10px; height: 200px; overflow-y: auto;"></pre>
+
+<script>
+const enc = new TextEncoder(), dec = new TextDecoder();
+const log = (s) => {
+  const logEl = document.getElementById('log');
+  logEl.textContent += s + '\n';
+  logEl.scrollTop = logEl.scrollHeight; // Автопрокрутка вниз
+};
+
+let myPriv, myId;
+
+async function init() {
+  try {
+    const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveKey']);
+    myPriv = kp.privateKey;
+    const raw = await crypto.subtle.exportKey('raw', kp.publicKey);
+    myId = btoa(String.fromCharCode(...new Uint8Array(raw)));
+    document.getElementById('myid').textContent = myId;
+    log('Ключи сгенерированы. Подключаемся к серверу...');
+    connectWS();
+  } catch (e) {
+    log('Ошибка генерации ключей: ' + e.message);
+  }
+}
+
+async function sharedKey(theirRawB64) {
+  const raw = Uint8Array.from(atob(theirRawB64), c => c.charCodeAt(0));
+  const theirPub = await crypto.subtle.importKey('raw', raw, { name: 'X25519' }, true, []);
+  return crypto.subtle.deriveKey(
+    { name: 'X25519', public: theirPub },
+    myPriv,
+    { name: 'AES-GCM', length: 256 },
+    false, ['encrypt', 'decrypt']
+  );
+}
+
+let ws;
+function connectWS() {
+  ws = new WebSocket('ws://localhost:8080');
+  
+  ws.onopen = () => {
+    log('Соединение установлено.');
+    ws.send(JSON.stringify({ type: 'register', pubkey: myId }));
+  };
+
+  ws.onmessage = async (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'registered') log('Успешно зарегистрирован на сервере.');
+    if (m.type === 'delivered') log('Сообщение доставлено.');
+    if (m.type === 'offline') log('Собеседник не в сети.');
+    
+    if (m.type === 'msg') {
+      try {
+        // Автоматически подставляем ID отправителя в поле ввода
+        document.getElementById('to').value = m.from;
+        
+        const key = await sharedKey(m.from);
+        const nonce = Uint8Array.from(atob(m.nonce), c => c.charCodeAt(0));
+        const ct = Uint8Array.from(atob(m.ciphertext), c => c.charCodeAt(0));
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct);
+        log(`[Получено от ${m.from.slice(0,6)}...]: ${dec.decode(pt)}`);
+      } catch (err) { 
+        log('Ошибка расшифровки. Возможно, ключи не совпадают.'); 
+      }
+    }
+  };
+
+  ws.onclose = () => log('Соединение с сервером потеряно (сервер выключен?).');
+}
+
+document.getElementById('send').onclick = async () => {
+  const to = document.getElementById('to').value.trim();
+  const text = document.getElementById('text').value;
+  
+  if (!to || !text) { log('Заполните ID получателя и текст.'); return; }
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Нет соединения с сервером.'); return; }
+
+  try {
+    const key = await sharedKey(to);
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, enc.encode(text));
+    
+    ws.send(JSON.stringify({
+      type: 'send', to: to,
+      nonce: btoa(String.fromCharCode(...nonce)),
+      ciphertext: btoa(String.fromCharCode(...new Uint8Array(ct)))
+    }));
+    
+    log(`[Вы]: ${text}`);
+    document.getElementById('text').value = ''; // Очистить поле после отправки
+  } catch (e) {
+    log('Ошибка отправки: ' + e.message);
+  }
+};
+
+init();
+</script>
+</body>
+</html>
