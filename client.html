@@ -30,7 +30,7 @@
   <p class="auth-footer">Нажимая «Войти», вы соглашаетесь с правилами Ультра+</p>
 </div>
 
-<!-- Главный экран (Чаты) -->
+<!-- Главный экран -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -73,47 +73,34 @@
   </div>
 </div>
 
-<!-- Экран профиля (НОВЫЙ) -->
+<!-- Экран профиля (ОБНОВЛЕННЫЙ) -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" onclick="closeProfile()" style="color: #fff; font-size: 24px;">←</button>
+    
     <div class="profile-avatar-big" onclick="document.getElementById('avatar-upload').click()">
       <img id="prof-avatar-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
       <div class="avatar-edit-icon">📷</div>
     </div>
     <input type="file" id="avatar-upload" style="display: none;" accept="image/*" onchange="uploadAvatar(event)">
     
-    <h2 id="prof-name-display" class="profile-name">Ваше Имя</h2>
-    <div id="prof-username" class="profile-username">@...</div>
+    <h2 id="prof-name" class="profile-name">@...</h2>
+    <div id="prof-bio" class="profile-bio">Напишите что-нибудь о себе...</div>
+    <div id="prof-phone" class="profile-phone">+...</div>
   </div>
 
   <div class="profile-settings">
-    <div class="setting-input-group">
-      <label>Отображаемое имя</label>
-      <input type="text" id="prof-input-name" placeholder="Как вас видят другие">
+    <div class="setting-item" onclick="editBio()">
+      <span>📝 Изменить статус (О себе)</span>
     </div>
-    <div class="setting-input-group">
-      <label>О себе (Статус)</label>
-      <input type="text" id="prof-input-bio" placeholder="Например: На связи 24/7">
+    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()">
+      <span>📷 Выбрать фото</span>
     </div>
-    
     <div class="setting-item" onclick="toggleHidePhone()">
       <span>🔒 Скрыть номер</span>
       <span id="hide-phone-status" style="color: #3390ec;">Выкл</span>
     </div>
-
-    <div class="avatar-gallery">
-      <p style="font-size:12px; color:#888; margin-bottom:10px;">Выберите готовый аватар:</p>
-      <div class="gallery-grid">
-        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Felix" onclick="setAvatarUrl(this.src)">
-        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Alex" onclick="setAvatarUrl(this.src)">
-        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Mia" onclick="setAvatarUrl(this.src)">
-        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Oscar" onclick="setAvatarUrl(this.src)">
-      </div>
-    </div>
-
-    <button class="profile-save-btn" onclick="saveProfile()">Сохранить изменения</button>
-    <div class="setting-item" onclick="logout()" style="margin-top:20px; justify-content:center;">
+    <div class="setting-item" onclick="logout()">
       <span style="color: #ff4444;">🚪 Выйти из аккаунта</span>
     </div>
   </div>
@@ -121,29 +108,19 @@
 
 <script>
 let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
-let currentDisplayName = "", currentBio = "";
 let currentChatId = "", currentChatName = "", currentChatIsGroup = false, messageInterval, statusInterval;
 let selectedFile = null, selectedFileType = null;
 let replyToMessage = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
 
-window.onload = async () => {
+window.onload = () => {
   const savedUser = localStorage.getItem('ultra_user');
   if(savedUser) {
     currentUser = savedUser;
     currentPhone = localStorage.getItem('ultra_phone') || '';
     currentAvatar = localStorage.getItem('ultra_avatar') || '';
     currentHidePhone = localStorage.getItem('ultra_hide') === 'true';
-    
-    const res = await fetch('/api/user/' + currentUser);
-    const data = await res.json();
-    if(data) {
-      currentDisplayName = data.display_name || currentUser;
-      currentBio = data.bio || '';
-      if(data.avatar) currentAvatar = data.avatar;
-    }
-    
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     loadChats();
@@ -155,11 +132,10 @@ async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const phone = document.getElementById('reg-phone').value.trim();
   if(!username || !phone) return alert("Введите логин и номер!");
-  currentUser = username; currentPhone = phone; currentDisplayName = username;
+  currentUser = username; currentPhone = phone;
   localStorage.setItem('ultra_user', currentUser);
   localStorage.setItem('ultra_phone', currentPhone);
-  
-  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, displayName: username }) });
+  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone }) });
   const data = await res.json();
   if(data.success) {
     document.getElementById('auth-screen').style.display = 'none';
@@ -172,49 +148,39 @@ async function register() {
 function logout() { if(confirm("Выйти?")) { localStorage.clear(); location.reload(); } }
 function sendPulse(typing) { if(currentUser) fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) }); }
 
+// --- ПРОФИЛЬ ---
 async function showProfile() {
   document.getElementById('main-screen').style.display = 'none';
   document.getElementById('profile-screen').style.display = 'flex';
+  document.getElementById('prof-name').innerText = '@' + currentUser;
+  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
+  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
+  if(currentAvatar) document.getElementById('prof-avatar-img').src = currentAvatar;
   
+  // Загружаем био с сервера
   const res = await fetch('/api/user/' + currentUser);
   const data = await res.json();
-  
-  if(data) {
-    currentDisplayName = data.display_name || currentUser;
-    currentBio = data.bio || '';
-    document.getElementById('prof-name-display').innerText = currentDisplayName;
-    document.getElementById('prof-username').innerText = '@' + currentUser;
-    document.getElementById('prof-input-name').value = currentDisplayName;
-    document.getElementById('prof-input-bio').value = currentBio;
-    if(data.avatar) document.getElementById('prof-avatar-img').src = data.avatar;
+  if(data && data.bio) {
+    document.getElementById('prof-bio').innerText = data.bio;
+  } else {
+    document.getElementById('prof-bio').innerText = 'Напишите что-нибудь о себе...';
   }
 }
 
+async function editBio() {
+  const newBio = prompt("Ваш новый статус (О себе):");
+  if(newBio === null) return;
+  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, bio: newBio }) });
+  document.getElementById('prof-bio').innerText = newBio || 'Напишите что-нибудь о себе...';
+}
+
 function closeProfile() { document.getElementById('profile-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; }
-
-function setAvatarUrl(url) {
-  document.getElementById('prof-avatar-img').src = url;
-  currentAvatar = url;
-}
-
-async function saveProfile() {
-  const newName = document.getElementById('prof-input-name').value.trim();
-  const newBio = document.getElementById('prof-input-bio').value.trim();
-  if(!newName) return alert("Имя не может быть пустым!");
-  
-  await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ 
-    username: currentUser, displayName: newName, bio: newBio, avatar: currentAvatar 
-  }) });
-  
-  localStorage.setItem('ultra_avatar', currentAvatar);
-  alert("Профиль сохранен!");
-  closeProfile();
-}
 
 function toggleHidePhone() {
   currentHidePhone = !currentHidePhone;
   localStorage.setItem('ultra_hide', currentHidePhone);
   document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
+  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
   fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, hidePhone: currentHidePhone }) });
 }
 
@@ -230,11 +196,13 @@ async function uploadAvatar(event) {
       currentAvatar = data.url;
       localStorage.setItem('ultra_avatar', currentAvatar);
       document.getElementById('prof-avatar-img').src = currentAvatar;
+      await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: currentAvatar }) });
     }
   };
   reader.readAsDataURL(file);
 }
 
+// --- ЧАТЫ ---
 async function loadChats() {
   const res = await fetch('/api/chats/' + currentUser);
   const chats = await res.json();
@@ -299,39 +267,34 @@ function handleFileSelect(input) {
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
   const inputField = document.getElementById('msg-input');
-  
   if(!isRecording) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const options = { mimeType: 'audio/webm' }; 
       mediaRecorder = new MediaRecorder(stream, options);
       audioChunks = [];
-      
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onload = async function(e) {
-          inputField.placeholder = "Отправка...";
+          inputField.placeholder = "Отправка голосового...";
           const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'voice.webm', fileData: e.target.result, fileType: 'audio/webm' }) });
           const data = await res.json();
           if(data.success) {
             await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text: '', fileUrl: data.url, fileType: 'audio/webm', replyTo: null }) });
             loadMessages();
             inputField.placeholder = "Написать сообщение...";
-          } else { alert("Ошибка загрузки: " + data.error); inputField.placeholder = "Написать сообщение..."; }
+          } else {
+            alert("Ошибка загрузки: " + data.error);
+            inputField.placeholder = "Написать сообщение...";
+          }
         };
         reader.readAsDataURL(audioBlob);
       };
-      
-      mediaRecorder.start();
-      isRecording = true;
-      recordingSeconds = 0;
-      micBtn.classList.add('recording');
-      micBtn.innerText = '⏹️';
-      inputField.placeholder = "Идет запись... 0:00";
-      inputField.disabled = true;
-      
+      mediaRecorder.start(); isRecording = true; recordingSeconds = 0;
+      micBtn.classList.add('recording'); micBtn.innerText = '⏹️';
+      inputField.placeholder = "Идет запись... 0:00"; inputField.disabled = true;
       recordingTimer = setInterval(() => {
         recordingSeconds++;
         const mins = Math.floor(recordingSeconds / 60);
@@ -340,12 +303,9 @@ async function toggleRecording() {
       }, 1000);
     } catch(e) { alert("Нет доступа к микрофону."); }
   } else {
-    mediaRecorder.stop();
-    isRecording = false;
-    clearInterval(recordingTimer);
-    micBtn.classList.remove('recording');
-    micBtn.innerText = '🎤';
-    inputField.disabled = false;
+    mediaRecorder.stop(); isRecording = false; clearInterval(recordingTimer);
+    micBtn.classList.remove('recording'); micBtn.innerText = '🎤';
+    inputField.disabled = false; inputField.placeholder = "Написать сообщение...";
   }
 }
 
@@ -357,19 +317,16 @@ async function loadMessages() {
     const box = document.getElementById('messages');
     if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
     box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
-    
     msgs.forEach(m => {
       const isMe = m.sender === currentUser;
       const div = document.createElement('div'); div.className = `msg-container ${isMe ? 'my' : 'their'}`;
       const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       let readStatus = isMe ? (m.read_by.length > 1 ? ' ✓✓' : ' ✓') : '';
       let content = '';
-      
       if(m.reply_to) {
         const originalMsg = msgs.find(x => x.id === m.reply_to);
         if(originalMsg) content += `<div class="reply-quote">${originalMsg.text || 'Файл'}</div>`;
       }
-
       if(m.file_url) {
         if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
         else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
@@ -377,7 +334,6 @@ async function loadMessages() {
         else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
-
       let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
       if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
       div.innerHTML = html; box.appendChild(div);
@@ -405,4 +361,8 @@ async function sendMessage() {
   input.value = ''; selectedFile = null; selectedFileType = null; input.placeholder = "Написать сообщение...";
   const replyId = replyToMessage ? replyToMessage.id : null; cancelReply();
   await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend, replyTo: replyId }) });
-  loa
+  loadMessages();
+}
+</script>
+</body>
+</html>
