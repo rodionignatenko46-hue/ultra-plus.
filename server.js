@@ -15,33 +15,54 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 let onlineUsers = {}; 
 let typingUsers = {};
 
+// РЕГИСТРАЦИЯ
 app.post('/api/register', async (req, res) => {
-  const { username, phone, avatar, hidePhone, bio } = req.body;
-  const { data: existing } = await supabase.from('users').select('*').eq('username', username).single();
+  const { username, phone, password, avatar, hidePhone, bio } = req.body;
   
-  if (!existing) {
-    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
-  } else {
-    let updateData = {};
-    if (phone) updateData.phone = phone;
-    if (avatar !== undefined) updateData.avatar = avatar;
-    if (hidePhone !== undefined) updateData.hide_phone = hidePhone;
-    if (bio !== undefined) updateData.bio = bio;
-    await supabase.from('users').update(updateData).eq('username', username);
-  }
+  // Проверяем, есть ли уже такой логин или номер
+  const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
+  const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
+
+  if (existingUser) return res.json({ success: false, error: "Этот логин уже занят!" });
+  if (existingPhone) return res.json({ success: false, error: "Этот номер уже зарегистрирован!" });
+  if (!password || password.length < 4) return res.json({ success: false, error: "Пароль должен быть не менее 4 символов!" });
+
+  await supabase.from('users').insert([{ username, phone, password, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
   res.json({ success: true });
+});
+
+// ВХОД
+app.post('/api/login', async (req, res) => {
+  const { login, password } = req.body;
+  // Ищем по логину или по номеру
+  const { data: user } = await supabase.from('users').select('*').or(`username.eq.${login},phone.eq.${login}`).single();
+  
+  if (!user) return res.json({ success: false, error: "Пользователь не найден." });
+  if (user.password !== password) return res.json({ success: false, error: "Неверный пароль." });
+
+  res.json({ success: true, user: { username: user.username, phone: user.phone, avatar: user.avatar, bio: user.bio } });
+});
+
+// ОБНОВЛЕНИЕ ПРОФИЛЯ
+app.post('/api/updateProfile', async (req, res) => {
+  const { username, avatar, hidePhone, bio } = req.body;
+  let updateData = {};
+  if (avatar !== undefined) updateData.avatar = avatar;
+  if (hidePhone !== undefined) updateData.hide_phone = hidePhone;
+  if (bio !== undefined) updateData.bio = bio;
+  await supabase.from('users').update(updateData).eq('username', username);
+  res.json({ success: true });
+});
+
+app.get('/api/user/:username', async (req, res) => {
+  const { data } = await supabase.from('users').select('*').eq('username', req.params.username).single();
+  if (data) res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar, bio: data.bio });
+  else res.json(null);
 });
 
 app.get('/api/find-by-phone/:phone', async (req, res) => {
   const { data } = await supabase.from('users').select('username, avatar').eq('phone', req.params.phone).single();
   res.json(data || null);
-});
-
-app.get('/api/user/:username', async (req, res) => {
-  const { data } = await supabase.from('users').select('*').eq('username', req.params.username).single();
-  if (data) {
-    res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar, bio: data.bio });
-  } else res.json(null);
 });
 
 app.get('/api/chats/:username', async (req, res) => {
