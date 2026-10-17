@@ -158,25 +158,30 @@ window.onload = () => {
   }
 };
 
+// РЕГИСТРАЦИЯ С ВЫВОДОМ ОШИБОК
 async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const phone = document.getElementById('reg-phone').value.trim();
   const password = document.getElementById('reg-pass').value;
   if(!username || !phone || !password) return alert("Заполните все поля!");
-  if(password.length < 4) return alert("Пароль минимум 4 символа!");
   
-  const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
-  const data = await res.json();
-  if(data.success) {
-    currentUser = username; currentPhone = phone;
-    localStorage.setItem('ultra_user', currentUser);
-    localStorage.setItem('ultra_phone', currentPhone);
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
-    loadChats();
-    setInterval(() => sendPulse(false), 10000);
-  } else {
-    alert("Ошибка: " + data.error);
+  try {
+    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
+    const data = await res.json();
+    
+    if(data.success) {
+      currentUser = username; currentPhone = phone;
+      localStorage.setItem('ultra_user', currentUser);
+      localStorage.setItem('ultra_phone', currentPhone);
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display = 'flex';
+      loadChats();
+      setInterval(() => sendPulse(false), 10000);
+    } else {
+      alert("ОШИБКА СЕРВЕРА: " + data.error);
+    }
+  } catch (e) {
+    alert("ОШИБКА СЕТИ: " + e.message);
   }
 }
 
@@ -393,4 +398,4 @@ async function loadMessages() {
   } catch(e) {}
 }
 
-function setReply(id, text) { replyToMessage = { id, text }; document.getElementById('reply-text').innerText = text; document.getElem
+function setReply(id, text) { replyToMessage = { id, text }; do
