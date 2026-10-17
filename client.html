@@ -6,6 +6,10 @@
   <title>Ультра+</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    #chat-screen, #main-screen, #auth-screen { height: 100dvh; }
+  </style>
 </head>
 <body>
 
@@ -13,19 +17,15 @@
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
   <p class="auth-subtitle">Твой космический мессенджер</p>
-  
   <div class="input-group">
     <label>Придумайте ваш @логин</label>
     <input id="reg-username" placeholder="Например: lorion4ik" autocomplete="off" />
   </div>
-
   <div class="input-group">
     <label>Номер телефона</label>
     <input id="reg-phone" placeholder="+7 (999) 000-00-00" type="tel" />
   </div>
-
   <button onclick="register()">Создать аккаунт</button>
-  
   <p class="auth-footer">Нажимая «Войти», вы соглашаетесь с правилами Ультра+</p>
 </div>
 
@@ -37,28 +37,13 @@
       <button onclick="showProfile()">⚙️</button>
     </div>
   </div>
-
   <div id="chat-list"></div>
-
   <button class="fab" onclick="findUser()">+</button>
-
   <div class="bottom-nav">
-    <div class="nav-item active">
-      <span class="nav-icon">💬</span>
-      <span>Чаты</span>
-    </div>
-    <div class="nav-item" onclick="alert('Звонки скоро появятся!')">
-      <span class="nav-icon">📞</span>
-      <span>Звонки</span>
-    </div>
-    <div class="nav-item" onclick="alert('Контакты скоро появятся!')">
-      <span class="nav-icon">👥</span>
-      <span>Контакты</span>
-    </div>
-    <div class="nav-item" onclick="showProfile()">
-      <span class="nav-icon">👤</span>
-      <span>Профиль</span>
-    </div>
+    <div class="nav-item active"><span class="nav-icon">💬</span><span>Чаты</span></div>
+    <div class="nav-item" onclick="alert('Скоро!')"><span class="nav-icon">📞</span><span>Звонки</span></div>
+    <div class="nav-item" onclick="alert('Скоро!')"><span class="nav-icon">👥</span><span>Контакты</span></div>
+    <div class="nav-item" onclick="showProfile()"><span class="nav-icon">👤</span><span>Профиль</span></div>
   </div>
 </div>
 
@@ -72,17 +57,15 @@
     </div>
   </div>
   <div id="messages"></div>
-  
   <div id="reply-preview" style="display:none; background:#2c2c2c; padding:10px; border-left:3px solid #00d4ff; margin: 0 10px; border-radius:5px; font-size:12px; color:#ccc; position: relative;">
     <span id="reply-text"></span>
     <button onclick="cancelReply()" style="position:absolute; right:10px; top:10px; background:none; border:none; color:red;">✖</button>
   </div>
-
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
     <button onclick="toggleRecording()" id="mic-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
-    <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
+    <input id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
@@ -98,18 +81,10 @@
     <h2 id="prof-name" class="profile-name">@...</h2>
     <div id="prof-phone" class="profile-phone">+...</div>
   </div>
-
   <div class="profile-settings">
-    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()">
-      <span>📷 Выбрать фото</span>
-    </div>
-    <div class="setting-item" onclick="toggleHidePhone()">
-      <span>🔒 Скрыть номер</span>
-      <span id="hide-phone-status" style="color: #3390ec;">Выкл</span>
-    </div>
-    <div class="setting-item" onclick="logout()">
-      <span style="color: #ff4444;">🚪 Выйти из аккаунта</span>
-    </div>
+    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()"><span>📷 Выбрать фото</span></div>
+    <div class="setting-item" onclick="toggleHidePhone()"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
+    <div class="setting-item" onclick="logout()"><span style="color: #ff4444;">🚪 Выйти из аккаунта</span></div>
   </div>
 </div>
 
@@ -142,31 +117,18 @@ async function register() {
   currentUser = username; currentPhone = phone;
   localStorage.setItem('ultra_user', currentUser);
   localStorage.setItem('ultra_phone', currentPhone);
-  
   const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone }) });
   const data = await res.json();
-  
   if(data.success) {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     loadChats();
     setInterval(() => sendPulse(false), 10000);
-  } else {
-    alert("Ошибка при регистрации: " + (data.error || "неизвестно"));
-  }
+  } else { alert("Ошибка: " + data.error); }
 }
 
-function logout() {
-  if(confirm("Вы уверены, что хотите выйти?")) {
-    localStorage.clear();
-    location.reload();
-  }
-}
-
-function sendPulse(typing) {
-  if(!currentUser) return;
-  fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) });
-}
+function logout() { if(confirm("Выйти?")) { localStorage.clear(); location.reload(); } }
+function sendPulse(typing) { if(currentUser) fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) }); }
 
 async function showProfile() {
   document.getElementById('main-screen').style.display = 'none';
@@ -176,12 +138,7 @@ async function showProfile() {
   document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
   if(currentAvatar) document.getElementById('prof-avatar-img').src = currentAvatar;
 }
-
-function closeProfile() {
-  document.getElementById('profile-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display = 'flex';
-}
-
+function closeProfile() { document.getElementById('profile-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; }
 function toggleHidePhone() {
   currentHidePhone = !currentHidePhone;
   localStorage.setItem('ultra_hide', currentHidePhone);
@@ -189,7 +146,6 @@ function toggleHidePhone() {
   document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
   fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, hidePhone: currentHidePhone }) });
 }
-
 async function uploadAvatar(event) {
   const file = event.target.files[0];
   if(!file) return;
@@ -207,59 +163,33 @@ async function uploadAvatar(event) {
   };
   reader.readAsDataURL(file);
 }
-
 async function loadChats() {
   const res = await fetch('/api/chats/' + currentUser);
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-  if(chats.length === 0) {
-    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px;">Найти друга</button></div>`;
-  }
+  if(chats.length === 0) list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px;">Найти друга</button></div>`;
   chats.forEach(chat => {
     const div = document.createElement('div'); div.className = 'chat-item'; div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    div.innerHTML = `<div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div><div class="chat-info"><div class="chat-name">@${chat.name}</div><div class="chat-preview">Нажмите, чтобы открыть</div></div>`;
+    div.innerHTML = `<div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div><div class="chat-info"><div class="chat-name">@${chat.name}</div><div class="chat-preview">Открыть</div></div>`;
     list.appendChild(div);
   });
 }
-
 async function findUser() {
-  const choice = prompt("Как искать друга? Напишите 1 для поиска по номеру, или 2 для поиска по @логину:");
+  const choice = prompt("1 - по номеру, 2 - по @логину:");
   if(!choice) return;
-  
-  let query = "";
-  let url = "";
-  
-  if(choice === '1') {
-    query = prompt("Введите номер телефона друга:");
-    if(!query) return;
-    url = '/api/find-by-phone/' + encodeURIComponent(query);
-  } else if(choice === '2') {
-    query = prompt("Введите @логин друга (без @):");
-    if(!query) return;
-    url = '/api/user/' + encodeURIComponent(query);
-  } else {
-    return alert("Выберите 1 или 2");
-  }
-
+  let query = prompt(choice === '1' ? "Номер друга:" : "Логин друга:");
+  if(!query) return;
+  const url = choice === '1' ? '/api/find-by-phone/' + encodeURIComponent(query) : '/api/user/' + encodeURIComponent(query);
   const res = await fetch(url);
   const data = await res.json();
-  
-  // ОТЛАДКА: Показываем, что пришло с сервера
-  alert("ОТВЕТ СЕРВЕРА: " + JSON.stringify(data));
-  
-  if(!data) return alert("Пользователь не найден.");
+  if(!data) return alert("Не найден.");
   if(data.username === currentUser) return alert("Это вы!");
-  
   const chatId = [currentUser, data.username].sort().join('_');
-  
   await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: data.username, isGroup: false }) });
   await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: currentUser, isGroup: false }) });
-  
-  alert("Чат создан!");
-  loadChats();
+  alert("Чат создан!"); loadChats();
 }
-
 function openChat(id, name, isGroup) {
   currentChatId = id; currentChatName = name; currentChatIsGroup = isGroup;
   document.getElementById('main-screen').style.display = 'none';
@@ -271,14 +201,7 @@ function openChat(id, name, isGroup) {
   if(statusInterval) clearInterval(statusInterval);
   if(!isGroup) statusInterval = setInterval(checkStatus, 2000);
 }
-
-function closeChat() {
-  document.getElementById('chat-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display = 'flex';
-  clearInterval(messageInterval); clearInterval(statusInterval);
-  loadChats();
-}
-
+function closeChat() { document.getElementById('chat-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; clearInterval(messageInterval); clearInterval(statusInterval); loadChats(); }
 async function checkStatus() {
   if(!currentChatName) return;
   const res = await fetch('/api/status/' + currentChatName);
@@ -288,7 +211,6 @@ async function checkStatus() {
   else if(data.isOnline) { statusEl.innerText = 'в сети'; statusEl.className = ''; statusEl.style.color = '#00ff88'; }
   else { statusEl.innerText = 'был(а) недавно'; statusEl.className = ''; statusEl.style.color = '#888'; }
 }
-
 function handleFileSelect(input) {
   const file = input.files[0];
   if(!file) return;
@@ -296,59 +218,40 @@ function handleFileSelect(input) {
   reader.onload = function(e) { selectedFile = e.target.result; selectedFileType = file.type; document.getElementById('msg-input').placeholder = "Файл готов!"; };
   reader.readAsDataURL(file);
 }
-
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
   const inputField = document.getElementById('msg-input');
-  
   if(!isRecording) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onload = async function(e) {
-          selectedFile = e.target.result; 
-          selectedFileType = 'audio/webm';
-          inputField.placeholder = "Голосовое готово! Нажмите ➤";
-          inputField.focus();
+          selectedFile = e.target.result; selectedFileType = 'audio/webm';
+          inputField.placeholder = "Голосовое готово!"; inputField.focus();
         };
         reader.readAsDataURL(audioBlob);
       };
-      
-      mediaRecorder.start();
-      isRecording = true;
-      recordingSeconds = 0;
-      
-      micBtn.classList.add('recording');
-      micBtn.innerText = '⏹️';
-      inputField.placeholder = "Идет запись... 0:00";
-      inputField.disabled = true;
-      
+      mediaRecorder.start(); isRecording = true; recordingSeconds = 0;
+      micBtn.classList.add('recording'); micBtn.innerText = '⏹️';
+      inputField.placeholder = "Идет запись... 0:00"; inputField.disabled = true;
       recordingTimer = setInterval(() => {
         recordingSeconds++;
         const mins = Math.floor(recordingSeconds / 60);
         const secs = recordingSeconds % 60;
         inputField.placeholder = `Идет запись... ${mins}:${secs < 10 ? '0' : ''}${secs}`;
       }, 1000);
-
-    } catch(e) { alert("Нет доступа к микрофону. Разрешите доступ в настройках."); }
+    } catch(e) { alert("Нет доступа к микрофону."); }
   } else {
-    mediaRecorder.stop();
-    isRecording = false;
-    clearInterval(recordingTimer);
-    
-    micBtn.classList.remove('recording');
-    micBtn.innerText = '🎤';
-    inputField.disabled = false;
-    inputField.placeholder = "Написать сообщение...";
+    mediaRecorder.stop(); isRecording = false; clearInterval(recordingTimer);
+    micBtn.classList.remove('recording'); micBtn.innerText = '🎤';
+    inputField.disabled = false; inputField.placeholder = "Написать сообщение...";
   }
 }
-
 async function loadMessages() {
   if(!currentChatId) return;
   try {
@@ -357,20 +260,16 @@ async function loadMessages() {
     const box = document.getElementById('messages');
     if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
     box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
-
     msgs.forEach(m => {
       const isMe = m.sender === currentUser;
-      const div = document.createElement('div');
-      div.className = `msg-container ${isMe ? 'my' : 'their'}`;
+      const div = document.createElement('div'); div.className = `msg-container ${isMe ? 'my' : 'their'}`;
       const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       let readStatus = isMe ? (m.read_by.length > 1 ? ' ✓✓' : ' ✓') : '';
-      
       let content = '';
       if(m.reply_to) {
         const originalMsg = msgs.find(x => x.id === m.reply_to);
         if(originalMsg) content += `<div class="reply-quote">${originalMsg.text || 'Файл'}</div>`;
       }
-
       if(m.file_url) {
         if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
         else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
@@ -378,40 +277,20 @@ async function loadMessages() {
         else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
       }
       content += m.text;
-
       let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
       if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
-      
-      div.innerHTML = html;
-      box.appendChild(div);
+      div.innerHTML = html; box.appendChild(div);
     });
     box.scrollTop = box.scrollHeight;
   } catch(e) {}
 }
-
-function setReply(id, text) {
-  replyToMessage = { id, text };
-  document.getElementById('reply-text').innerText = text;
-  document.getElementById('reply-preview').style.display = 'block';
-  document.getElementById('msg-input').focus();
-}
-
-function cancelReply() {
-  replyToMessage = null;
-  document.getElementById('reply-preview').style.display = 'none';
-}
-
-async function deleteMsg(id) {
-  if(!confirm("Удалить сообщение?")) return;
-  await fetch(`/api/message/${currentChatId}/${id}`, { method: 'DELETE' });
-  loadMessages();
-}
-
+function setReply(id, text) { replyToMessage = { id, text }; document.getElementById('reply-text').innerText = text; document.getElementById('reply-preview').style.display = 'block'; document.getElementById('msg-input').focus(); }
+function cancelReply() { replyToMessage = null; document.getElementById('reply-preview').style.display = 'none'; }
+async function deleteMsg(id) { if(confirm("Удалить?")) { await fetch(`/api/message/${currentChatId}/${id}`, { method: 'DELETE' }); loadMessages(); } }
 async function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if(!text && !selectedFile) return;
-
   let fileUrl = null, fileTypeToSend = null;
   if(selectedFile) {
     input.placeholder = "Загрузка...";
@@ -420,11 +299,8 @@ async function sendMessage() {
     if(data.success) { fileUrl = data.url; fileTypeToSend = selectedFileType; }
     else { alert('Ошибка загрузки'); return; }
   }
-
   input.value = ''; selectedFile = null; selectedFileType = null; input.placeholder = "Написать сообщение...";
-  const replyId = replyToMessage ? replyToMessage.id : null;
-  cancelReply();
-
+  const replyId = replyToMessage ? replyToMessage.id : null; cancelReply();
   await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend, replyTo: replyId }) });
   loadMessages();
 }
