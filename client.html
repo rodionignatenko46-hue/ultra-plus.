@@ -1,129 +1,195 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>Ультра+</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ультра+</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-<h3>Ультра+</h3>
-<div>Мой ID: <code id="myid">Генерация...</code></div>
-<input id="to" placeholder="ID получателя" style="width: 300px;">
-<br><br>
-<textarea id="text" placeholder="Сообщение" style="width: 300px; height: 80px;"></textarea>
-<br><br>
-<button id="send">Отправить</button>
-<pre id="log" style="background: #eee; padding: 10px; height: 200px; overflow-y: auto;"></pre>
+
+<!-- Экран входа -->
+<div id="auth-screen">
+  <h1>Ультра+</h1>
+  <input id="reg-username" placeholder="Придумайте логин (без @)" />
+  <input id="reg-avatar" placeholder="Ссылка на аватарку (необязательно)" />
+  <button onclick="register()">Войти</button>
+</div>
+
+<!-- Основной экран -->
+<div id="main-screen">
+  <div class="header">
+    <h2 id="my-name">Мой профиль</h2>
+    <button onclick="showNewChat()">+ Чат</button>
+    <button onclick="showNewGroup()">+ Группа</button>
+  </div>
+  <div id="chat-list"></div>
+</div>
+
+<!-- Экран чата -->
+<div id="chat-screen" style="width:100%; max-width:400px; height:100vh; background:#212121; display:none; flex-direction:column;">
+  <div class="chat-header">
+    <button class="back-btn" onclick="closeChat()">←</button>
+    <div class="chat-avatar" id="chat-head-avatar" style="width:35px; height:35px; font-size:16px; margin-right:10px;"></div>
+    <h2 id="chat-title" style="font-size:16px;">Чат</h2>
+  </div>
+  <div id="messages"></div>
+  <div class="input-area">
+    <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">➤</button>
+  </div>
+</div>
 
 <script>
-const enc = new TextEncoder(), dec = new TextDecoder();
-const log = (s) => {
-  const logEl = document.getElementById('log');
-  logEl.textContent += s + '\n';
-  logEl.scrollTop = logEl.scrollHeight;
-};
+let currentUser = "";
+let currentChatId = "";
+let currentChatName = "";
+let messageInterval;
 
-let myKeys, myId;
-const knownKeys = {};
+// 1. Вход
+async function register() {
+  const username = document.getElementById('reg-username').value.trim().replace('@', '');
+  const avatar = document.getElementById('reg-avatar').value.trim();
+  if(!username) return alert("Введите логин!");
 
-async function init() {
-  try {
-    myKeys = await crypto.subtle.generateKey(
-      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true, ["encrypt", "decrypt"]
-    );
-    
-    const exported = await crypto.subtle.exportKey("spki", myKeys.publicKey);
-    myId = btoa(String.fromCharCode(...new Uint8Array(exported)));
-    document.getElementById('myid').textContent = myId;
-    log('Ключи сгенерированы. Регистрация на сервере...');
-
-    // Регистрируемся
-    await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: myId, pubkey: myId })
-    });
-    log('Успешно зарегистрирован.');
-    
-    // Запускаем цикл проверки сообщений
-    setInterval(checkMessages, 2000);
-  } catch (e) {
-    log('Ошибка: ' + e.message);
-  }
-}
-
-async function checkMessages() {
-  try {
-    const res = await fetch('/api/messages/' + encodeURIComponent(myId));
-    const msgs = await res.json();
-    
-    for (let m of msgs) {
-      if (!knownKeys[m.from]) {
-        const keyRes = await fetch('/api/key/' + encodeURIComponent(m.from));
-        const keyData = await keyRes.json();
-        if (keyData.pubkey) knownKeys[m.from] = keyData.pubkey;
-      }
-      
-      document.getElementById('to').value = m.from;
-      const rawPub = Uint8Array.from(atob(m.from), c => c.charCodeAt(0));
-      const theirPubKey = await crypto.subtle.importKey("spki", rawPub, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
-      
-      const encryptedAesKey = Uint8Array.from(atob(m.key), c => c.charCodeAt(0));
-      const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, myKeys.privateKey, encryptedAesKey);
-      
-      const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
-      const nonce = Uint8Array.from(atob(m.nonce), c => c.charCodeAt(0));
-      const ct = Uint8Array.from(atob(m.ciphertext), c => c.charCodeAt(0));
-      
-      const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, aesKey, ct);
-      log(`[${m.from.slice(0,6)}...]: ${dec.decode(pt)}`);
-    }
-  } catch (e) {
-    // Игнорируем ошибки сети, просто ждем следующего раза
-  }
-}
-
-document.getElementById('send').onclick = async () => {
-  const to = document.getElementById('to').value.trim();
-  const text = document.getElementById('text').value;
+  const res = await fetch('/api/register', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username, avatar, pubkey: "dummy_key" })
+  });
+  const data = await res.json();
   
-  if (!to || !text) { log('Заполните ID получателя и текст.'); return; }
-
-  try {
-    if (!knownKeys[to]) {
-      log('Запрос ключа у собеседника...');
-      const keyRes = await fetch('/api/key/' + encodeURIComponent(to));
-      const keyData = await keyRes.json();
-      if (!keyData.pubkey) { log('Собеседник не найден в сети.'); return; }
-      knownKeys[to] = keyData.pubkey;
-    }
-
-    const rawPub = Uint8Array.from(atob(knownKeys[to]), c => c.charCodeAt(0));
-    const theirPubKey = await crypto.subtle.importKey("spki", rawPub, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
-
-    const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
-    const aesKeyRaw = await crypto.subtle.exportKey("raw", aesKey);
-    const encryptedAesKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, theirPubKey, aesKeyRaw);
-
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, aesKey, enc.encode(text));
-    
-    await fetch('/api/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: to, from: myId,
-        key: btoa(String.fromCharCode(...new Uint8Array(encryptedAesKey))),
-        nonce: btoa(String.fromCharCode(...new Uint8Array(nonce))),
-        ciphertext: btoa(String.fromCharCode(...new Uint8Array(ct)))
-      })
-    });
-    
-    log(`[Вы]: ${text}`);
-    document.getElementById('text').value = ''; 
-  } catch (e) {
-    log('Ошибка отправки: ' + e.message);
+  if(data.success) {
+    currentUser = username;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    document.getElementById('my-name').innerText = '@' + currentUser;
+    loadChats();
   }
-};
+}
 
-init();
+// 2. Загрузка списка чатов
+async function loadChats() {
+  const res = await fetch('/api/chats/' + currentUser);
+  const chats = await res.json();
+  const list = document.getElementById('chat-list');
+  list.innerHTML = '';
+
+  if(chats.length === 0) {
+    list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите "+ Чат"</p>';
+  }
+
+  chats.forEach(chat => {
+    const div = document.createElement('div');
+    div.className = 'chat-item';
+    div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
+    
+    // Аватарка
+    let avatarHtml = chat.isGroup ? '👥' : chat.name[0].toUpperCase();
+    div.innerHTML = `
+      <div class="chat-avatar">${avatarHtml}</div>
+      <div class="chat-info">
+        <div class="chat-name">${chat.name}</div>
+        <div class="chat-preview">Нажмите, чтобы открыть</div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// 3. Создание чата 1 на 1
+async function showNewChat() {
+  const toUser = prompt("Введите логин собеседника (без @):");
+  if(!toUser || toUser === currentUser) return;
+
+  // Проверяем существует ли он
+  const res = await fetch('/api/user/' + toUser);
+  const userData = await res.json();
+  if(!userData) return alert("Пользователь не найден! (Он должен хотя бы раз зайти в приложение)");
+
+  // Создаем общий ID чата (сортируем имена, чтобы у обоих был одинаковый ID)
+  const chatId = [currentUser, toUser].sort().join('_');
+  
+  // Добавляем чат себе
+  await fetch('/api/addChat', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username: currentUser, chatId, name: toUser, isGroup: false })
+  });
+
+  // Добавляем чат собеседнику
+  await fetch('/api/addChat', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username: toUser, chatId, name: currentUser, isGroup: false })
+  });
+
+  loadChats();
+}
+
+// 4. Создание группы
+async function showNewGroup() {
+  const groupName = prompt("Введите название группы:");
+  if(!groupName) return;
+
+  const res = await fetch('/api/group', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ groupName, creator: currentUser })
+  });
+  const data = await res.json();
+  loadChats();
+}
+
+// 5. Открытие чата
+function openChat(id, name, isGroup) {
+  currentChatId = id;
+  currentChatName = name;
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('chat-screen').style.display = 'flex';
+  document.getElementById('chat-title').innerText = name;
+  document.getElementById('chat-head-avatar').innerHTML = isGroup ? '👥' : name[0].toUpperCase();
+  
+  loadMessages();
+  if(messageInterval) clearInterval(messageInterval);
+  messageInterval = setInterval(loadMessages, 2000); // Проверка каждые 2 сек
+}
+
+function closeChat() {
+  document.getElementById('chat-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+  clearInterval(messageInterval);
+  loadChats();
+}
+
+// 6. Загрузка сообщений
+async function loadMessages() {
+  if(!currentChatId) return;
+  const res = await fetch('/api/messages/' + currentChatId);
+  const msgs = await res.json();
+  const box = document.getElementById('messages');
+  box.innerHTML = '';
+
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    const isMe = m.from === currentUser;
+    div.className = `msg-bubble ${isMe ? 'msg-my' : 'msg-their'}`;
+    // В группах показываем имя отправителя
+    div.innerHTML = (!isMe && currentChatId.startsWith('group_') ? `<b style="font-size:12px; color:#3390ec; display:block;">@${m.from}</b>` : '') + m.text;
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+// 7. Отправка сообщения
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text) return;
+
+  await fetch('/api/message', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text })
+  });
+  input.value = '';
+  loadMessages();
+}
 </script>
 </body>
 </html>
