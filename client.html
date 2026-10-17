@@ -9,64 +9,6 @@
   <style>
     html, body { height: 100%; overflow: hidden; }
     #chat-screen, #main-screen, #auth-screen { height: 100dvh; }
-    
-    /* Стили для кружочков */
-    .video-circle {
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid #6e44ff;
-      cursor: pointer;
-      box-shadow: 0 0 15px rgba(110, 68, 255, 0.5);
-      margin-bottom: 5px;
-      transition: transform 0.2s;
-    }
-    .video-circle:active { transform: scale(0.95); }
-
-    /* Модальное окно для просмотра */
-    #video-modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9);
-      z-index: 999;
-      justify-content: center;
-      align-items: center;
-    }
-    #video-modal video {
-      max-width: 90%;
-      max-height: 90%;
-      border-radius: 20px;
-    }
-
-    /* Модальное окно для записи */
-    #record-modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.95);
-      z-index: 1000;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: white;
-    }
-    #record-preview {
-      width: 250px; height: 250px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 4px solid #6e44ff;
-      margin-bottom: 20px;
-    }
-    .record-controls button {
-      padding: 15px 30px; margin: 10px; border-radius: 30px; border: none;
-      font-size: 16px; font-weight: bold; cursor: pointer;
-    }
-    .btn-start { background: #00ff88; color: #000; }
-    .btn-stop { background: #ff4444; color: #fff; }
-    .btn-send { background: #6e44ff; color: #fff; }
-    .btn-cancel { background: #333; color: #fff; }
   </style>
 </head>
 <body>
@@ -125,7 +67,6 @@
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
     <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
-    <button onclick="openRecordModal()" id="video-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📹</button>
     <button onclick="toggleRecording()" id="mic-btn" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="sendPulse(true)">
     <button onclick="sendMessage()">➤</button>
@@ -153,22 +94,6 @@
   </div>
 </div>
 
-<!-- Модальное окно просмотра видео -->
-<div id="video-modal" onclick="this.style.display='none'">
-  <video id="fullscreen-video" controls autoplay></video>
-</div>
-
-<!-- Модальное окно записи кружочка -->
-<div id="record-modal">
-  <video id="record-preview" autoplay muted playsinline></video>
-  <div class="record-controls">
-    <button id="rec-start-btn" class="btn-start" onclick="startVideoRecord()">Записать</button>
-    <button id="rec-stop-btn" class="btn-stop" onclick="stopVideoRecord()" style="display:none;">Стоп</button>
-    <button id="rec-send-btn" class="btn-send" onclick="sendVideoRecord()" style="display:none;">Отправить</button>
-    <button class="btn-cancel" onclick="closeRecordModal()">Отмена</button>
-  </div>
-</div>
-
 <script>
 let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
 let currentChatId = "", currentChatName = "", currentChatIsGroup = false, messageInterval, statusInterval;
@@ -176,9 +101,6 @@ let selectedFile = null, selectedFileType = null;
 let replyToMessage = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
-
-// Переменные для видео
-let videoStream, videoRecorder, videoChunks = [], recordedVideoBlob = null;
 
 window.onload = () => {
   const savedUser = localStorage.getItem('ultra_user');
@@ -367,60 +289,60 @@ async function toggleRecording() {
   }
 }
 
-// --- БЕЗОПАСНЫЕ КРУЖОЧКИ (ВИДЕО) ---
-async function openRecordModal() {
-  document.getElementById('record-modal').style.display = 'flex';
+async function loadMessages() {
+  if(!currentChatId) return;
   try {
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-    document.getElementById('record-preview').srcObject = videoStream;
-    document.getElementById('rec-start-btn').style.display = 'inline-block';
-    document.getElementById('rec-stop-btn').style.display = 'none';
-    document.getElementById('rec-send-btn').style.display = 'none';
-    recordedVideoBlob = null;
-  } catch (e) {
-    alert("Нет доступа к камере.");
-    closeRecordModal();
-  }
+    const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
+    const msgs = await res.json();
+    const box = document.getElementById('messages');
+    if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
+    box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
+    msgs.forEach(m => {
+      const isMe = m.sender === currentUser;
+      const div = document.createElement('div'); div.className = `msg-container ${isMe ? 'my' : 'their'}`;
+      const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      let readStatus = isMe ? (m.read_by.length > 1 ? ' ✓✓' : ' ✓') : '';
+      let content = '';
+      if(m.reply_to) {
+        const originalMsg = msgs.find(x => x.id === m.reply_to);
+        if(originalMsg) content += `<div class="reply-quote">${originalMsg.text || 'Файл'}</div>`;
+      }
+      if(m.file_url) {
+        if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
+        else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+        else if(m.file_type.startsWith('audio/')) content += `<audio src="${m.file_url}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
+        else content += `<a href="${m.file_url}" target="_blank" style="color:#fff;">📄 Скачать файл</a><br>`;
+      }
+      content += m.text;
+      let html = `<div class="msg-bubble ${isMe ? 'msg-my' : 'msg-their'}" style="cursor:pointer;" onclick="setReply('${m.id}', '${(m.text || 'Файл').replace(/'/g, "\\'")}')">${content}<div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div></div>`;
+      if(isMe) html += `<button class="msg-delete-btn" onclick="deleteMsg('${m.id}')">Удалить</button>`;
+      div.innerHTML = html; box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
 }
 
-function closeRecordModal() {
-  document.getElementById('record-modal').style.display = 'none';
-  if (videoStream) {
-    videoStream.getTracks().forEach(track => track.stop());
-  }
-}
+function setReply(id, text) { replyToMessage = { id, text }; document.getElementById('reply-text').innerText = text; document.getElementById('reply-preview').style.display = 'block'; document.getElementById('msg-input').focus(); }
+function cancelReply() { replyToMessage = null; document.getElementById('reply-preview').style.display = 'none'; }
+async function deleteMsg(id) { if(confirm("Удалить?")) { await fetch(`/api/message/${currentChatId}/${id}`, { method: 'DELETE' }); loadMessages(); } }
 
-function startVideoRecord() {
-  videoChunks = [];
-  videoRecorder = new MediaRecorder(videoStream);
-  videoRecorder.ondataavailable = e => videoChunks.push(e.data);
-  videoRecorder.onstop = () => {
-    recordedVideoBlob = new Blob(videoChunks, { type: 'video/webm' });
-    document.getElementById('rec-preview').srcObject = null;
-    document.getElementById('rec-preview').src = URL.createObjectURL(recordedVideoBlob);
-    document.getElementById('rec-send-btn').style.display = 'inline-block';
-  };
-  videoRecorder.start();
-  document.getElementById('rec-start-btn').style.display = 'none';
-  document.getElementById('rec-stop-btn').style.display = 'inline-block';
-}
-
-function stopVideoRecord() {
-  videoRecorder.stop();
-  document.getElementById('rec-stop-btn').style.display = 'none';
-  // Не отключаем камеру сразу, чтобы показать превью
-}
-
-async function sendVideoRecord() {
-  if (!recordedVideoBlob) return;
-  closeRecordModal();
-  
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    document.getElementById('msg-input').placeholder = "Отправка видео...";
-    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'circle.webm', fileData: e.target.result, fileType: 'video/webm' }) });
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text && !selectedFile) return;
+  let fileUrl = null, fileTypeToSend = null;
+  if(selectedFile) {
+    input.placeholder = "Загрузка...";
+    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'file', fileData: selectedFile, fileType: selectedFileType }) });
     const data = await res.json();
-    if(data.success) {
-      await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text: '', fileUrl: data.url, fileType: 'video/webm', replyTo: null }) });
-      loadMessages();
-      document.getElementById('msg-input')
+    if(data.success) { fileUrl = data.url; fileTypeToSend = selectedFileType; }
+    else { alert('Ошибка загрузки'); return; }
+  }
+  input.value = ''; selectedFile = null; selectedFileType = null; input.placeholder = "Написать сообщение...";
+  const replyId = replyToMessage ? replyToMessage.id : null; cancelReply();
+  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend, replyTo: replyId }) });
+  loadMessages();
+}
+</script>
+</body>
+</html>
