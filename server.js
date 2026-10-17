@@ -15,32 +15,45 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 let onlineUsers = {}; 
 let typingUsers = {};
 
-// РЕГИСТРАЦИЯ
+// РЕГИСТРАЦИЯ (с проверкой на ошибки)
 app.post('/api/register', async (req, res) => {
-  const { username, phone, password, avatar, hidePhone, bio } = req.body;
-  
-  // Проверяем, есть ли уже такой логин или номер
-  const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
-  const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
+  try {
+    const { username, phone, password, avatar, hidePhone, bio } = req.body;
+    
+    const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
+    const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
 
-  if (existingUser) return res.json({ success: false, error: "Этот логин уже занят!" });
-  if (existingPhone) return res.json({ success: false, error: "Этот номер уже зарегистрирован!" });
-  if (!password || password.length < 4) return res.json({ success: false, error: "Пароль должен быть не менее 4 символов!" });
+    if (existingUser) return res.json({ success: false, error: "Этот логин уже занят!" });
+    if (existingPhone) return res.json({ success: false, error: "Этот номер уже зарегистрирован!" });
+    if (!password || password.length < 4) return res.json({ success: false, error: "Пароль должен быть не менее 4 символов!" });
 
-  await supabase.from('users').insert([{ username, phone, password, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
-  res.json({ success: true });
+    const { error } = await supabase.from('users').insert([{ username, phone, password, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
+    
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error("ОШИБКА РЕГИСТРАЦИИ:", err);
+    res.json({ success: false, error: err.message || "Неизвестная ошибка" });
+  }
 });
 
 // ВХОД
 app.post('/api/login', async (req, res) => {
-  const { login, password } = req.body;
-  // Ищем по логину или по номеру
-  const { data: user } = await supabase.from('users').select('*').or(`username.eq.${login},phone.eq.${login}`).single();
-  
-  if (!user) return res.json({ success: false, error: "Пользователь не найден." });
-  if (user.password !== password) return res.json({ success: false, error: "Неверный пароль." });
+  try {
+    const { login, password } = req.body;
+    const { data: user } = await supabase.from('users').select('*').or(`username.eq.${login},phone.eq.${login}`).single();
+    
+    if (!user) return res.json({ success: false, error: "Пользователь не найден." });
+    
+    // Если пароль в базе есть, проверяем его. Если нет (старый аккаунт) - пускаем.
+    if (user.password && user.password !== password) {
+      return res.json({ success: false, error: "Неверный пароль." });
+    }
 
-  res.json({ success: true, user: { username: user.username, phone: user.phone, avatar: user.avatar, bio: user.bio } });
+    res.json({ success: true, user: { username: user.username, phone: user.phone, avatar: user.avatar, bio: user.bio } });
+  } catch (err) {
+    res.json({ success: false, error: "Ошибка сервера при входе." });
+  }
 });
 
 // ОБНОВЛЕНИЕ ПРОФИЛЯ
