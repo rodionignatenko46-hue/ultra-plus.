@@ -29,6 +29,23 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // Запрос публичного ключа собеседника
+    if (msg.type === 'getKey') {
+      const targetWs = peers.get(msg.to);
+      if (targetWs) {
+        // Просим собеседника прислать его ключ
+        targetWs.send(JSON.stringify({ type: 'askKey', from: myKey }));
+      }
+    }
+
+    // Ответ с публичным ключом
+    if (msg.type === 'sendKey') {
+      const targetWs = peers.get(msg.to);
+      if (targetWs) {
+        targetWs.send(JSON.stringify({ type: 'keyResponse', from: myKey, key: msg.key }));
+      }
+    }
+
     if (msg.type === 'send') {
       const target = peers.get(msg.to);
       if (target && target.readyState === 1) {
