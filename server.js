@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
-// Настройки Supabase
 const SUPABASE_URL = 'https://dhlvlbmjhkrpqsqatpwh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRobHZsYm1qaGtycHFzcWF0cHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY4MDIsImV4cCI6MjEwNzgyMjgwMn0.x7AY8aNbamKBwhJiNu0XLP0JKaqK1oUdR2tr2SUd7Dc';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -19,6 +18,8 @@ const DB_MSGS = path.join(__dirname, 'messages.json');
 
 let users = fs.existsSync(DB_USERS) ? JSON.parse(fs.readFileSync(DB_USERS)) : {};
 let messages = fs.existsSync(DB_MSGS) ? JSON.parse(fs.readFileSync(DB_MSGS)) : {};
+let onlineUsers = {}; // Кто сейчас в сети (username: timestamp)
+let typingUsers = {}; // Кто печатает (username: timestamp)
 
 function saveData() {
   fs.writeFileSync(DB_USERS, JSON.stringify(users, null, 2));
@@ -48,8 +49,10 @@ app.get('/api/find-by-phone/:phone', (req, res) => {
 
 app.get('/api/user/:username', (req, res) => {
   const u = users[req.params.username];
-  if (u) res.json({ username: req.params.username, phone: u.hidePhone ? 'Скрыт' : u.phone, avatar: u.avatar });
-  else res.json(null);
+  if (u) {
+    const lastSeen = onlineUsers[req.params.username] ? 'online' : 'offline';
+    res.json({ username: req.params.username, phone: u.hidePhone ? 'Скрыт' : u.phone, avatar: u.avatar, lastSeen });
+  } else res.json(null);
 });
 
 app.get('/api/chats/:username', (req, res) => {
@@ -66,30 +69,13 @@ app.post('/api/addChat', (req, res) => {
   res.json({ success: true });
 });
 
-// ЗАГРУЗКА ФАЙЛА В SUPABASE
 app.post('/api/upload', async (req, res) => {
   try {
     const { fileName, fileData, fileType } = req.body;
-    // Декодируем Base64 в бинарные данные
     const base64Data = fileData.replace(/^data:.*?;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-
-    // Загружаем в Supabase (папка ultra-files)
-    const { data, error } = await supabase.storage
-      .from('ultra-files')
-      .upload(`chat/${Date.now()}_${fileName}`, buffer, {
-        contentType: fileType,
-        upsert: true
-      });
-
+    const { data, error } = await supabase.storage.from('ultra-files').upload(`chat/${Date.now()}_${fileName}`, buffer, { contentType: fileType, upsert: true });
     if (error) throw error;
-
-    // Получаем публичную ссылку
-    const { data: publicUrlData } = supabase.storage
-      .from('ultra-files')
-      .getPublicUrl(`chat/${Date.now()}_${fileName}`); // Внимание: имя должно совпадать с загрузкой
-
-    // ВАЖНО: getPublicUrl использует то же имя, поэтому лучше сохранить его
     const finalUrl = supabase.storage.from('ultra-files').getPublicUrl(data.path).data.publicUrl;
     res.json({ success: true, url: finalUrl });
   } catch (err) {
@@ -97,14 +83,40 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
+// Пульс (отслеживание онлайна и печати)
+app.post('/api/pulse', (req, res) => {
+  const { username, typing } = req.body;
+  onlineUsers[username] = Date.now();
+  if (typing) typingUsers[username] = Date.now();
+  res.json({ success: true });
+});
+
+// Получение статуса собеседника
+app.get('/api/status/:username', (req, res) => {
+  const user = req.params.username;
+  const now = Date.now();
+  const isOnline = onlineUsers[user] && (now - onlineUsers[user] < 15000); // В сети, если активен 15 сек
+  const isTyping = typingUsers[user] && (now - typingUsers[user] < 5000); // Печатает, если активен 5 сек
+  res.json({ isOnline, isTyping });
+});
+
 app.post('/api/message', (req, res) => {
-  const { chatId, from, text, fileUrl, fileType } = req.body;
+  const { chatId, from, text, fileUrl, fileType, replyTo } = req.body;
   if (!messages[chatId]) messages[chatId] = [];
-  
   const msgId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-  messages[chatId].push({ id: msgId, from, text: text || '', fileUrl: fileUrl || null, fileType: fileType || null, time: Date.now(), readBy: [from] });
+  messages[chatId].push({ id: msgId, from, text: text || '', fileUrl: fileUrl || null, fileType: fileType || null, replyTo: replyTo || null, time: Date.now(), readBy: [from] });
   saveData();
   res.json({ success: true, id: msgId });
+});
+
+// Удаление сообщения
+app.delete('/api/message/:chatId/:msgId', (req, res) => {
+  const { chatId, msgId } = req.params;
+  if (messages[chatId]) {
+    messages[chatId] = messages[chatId].filter(m => m.id !== msgId);
+    saveData();
+  }
+  res.json({ success: true });
 });
 
 app.get('/api/messages/:chatId', (req, res) => {
