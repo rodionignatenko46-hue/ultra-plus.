@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.onrender.ultra_plus.twa",
+      "sha256_cert_fingerprints": [
+        "1F:D3:BC:2A:8D:80:C2:D8:3A:38:83:D3:1D:97:88:82:D7:58:D7:A0:80:00:0C:EF:76:FA:AC:91:BB:E2:BC:34"
+      ]
+    }
+  }
+]
