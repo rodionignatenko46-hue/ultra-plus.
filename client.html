@@ -27,37 +27,36 @@
 </div>
 
 <!-- Экран чата -->
-<div id="chat-screen" style="width:100%; max-width:400px; height:100vh; background:#212121; display:none; flex-direction:column;">
+<div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" onclick="closeChat()">←</button>
-    <div class="chat-avatar" id="chat-head-avatar" style="width:35px; height:35px; font-size:16px; margin-right:10px;"></div>
-    <h2 id="chat-title" style="font-size:16px;">Чат</h2>
+    <div class="chat-avatar" id="chat-head-avatar"></div>
+    <h2 id="chat-title">Чат</h2>
   </div>
   <div id="messages"></div>
+  
   <div class="input-area">
+    <!-- Скрытый input для файлов -->
+    <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
+    <button onclick="document.getElementById('file-input').click()" style="background: none; color: #3390ec; font-size: 24px;">📎</button>
     <input id="msg-input" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
 
 <script>
-let currentUser = "";
-let currentChatId = "";
-let currentChatName = "";
-let messageInterval;
+let currentUser = "", currentChatId = "", currentChatName = "", messageInterval;
+let selectedFile = null, selectedFileType = null;
 
-// 1. Вход
 async function register() {
   const username = document.getElementById('reg-username').value.trim().replace('@', '');
   const avatar = document.getElementById('reg-avatar').value.trim();
   if(!username) return alert("Введите логин!");
-
   const res = await fetch('/api/register', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username, avatar, pubkey: "dummy_key" })
+    body: JSON.stringify({ username, avatar, pubkey: "dummy" })
   });
   const data = await res.json();
-  
   if(data.success) {
     currentUser = username;
     document.getElementById('auth-screen').style.display = 'none';
@@ -67,88 +66,50 @@ async function register() {
   }
 }
 
-// 2. Загрузка списка чатов
 async function loadChats() {
   const res = await fetch('/api/chats/' + currentUser);
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-
-  if(chats.length === 0) {
-    list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите "+ Чат"</p>';
-  }
-
+  if(chats.length === 0) list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите "+ Чат"</p>';
   chats.forEach(chat => {
     const div = document.createElement('div');
     div.className = 'chat-item';
     div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    
-    // Аватарка
-    let avatarHtml = chat.isGroup ? '👥' : chat.name[0].toUpperCase();
     div.innerHTML = `
-      <div class="chat-avatar">${avatarHtml}</div>
-      <div class="chat-info">
-        <div class="chat-name">${chat.name}</div>
-        <div class="chat-preview">Нажмите, чтобы открыть</div>
-      </div>
-    `;
+      <div class="chat-avatar">${chat.isGroup ? '👥' : chat.name[0].toUpperCase()}</div>
+      <div class="chat-info"><div class="chat-name">${chat.name}</div></div>`;
     list.appendChild(div);
   });
 }
 
-// 3. Создание чата 1 на 1
 async function showNewChat() {
   const toUser = prompt("Введите логин собеседника (без @):");
   if(!toUser || toUser === currentUser) return;
-
-  // Проверяем существует ли он
   const res = await fetch('/api/user/' + toUser);
-  const userData = await res.json();
-  if(!userData) return alert("Пользователь не найден! (Он должен хотя бы раз зайти в приложение)");
-
-  // Создаем общий ID чата (сортируем имена, чтобы у обоих был одинаковый ID)
+  if(!(await res.json())) return alert("Пользователь не найден!");
   const chatId = [currentUser, toUser].sort().join('_');
-  
-  // Добавляем чат себе
-  await fetch('/api/addChat', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username: currentUser, chatId, name: toUser, isGroup: false })
-  });
-
-  // Добавляем чат собеседнику
-  await fetch('/api/addChat', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username: toUser, chatId, name: currentUser, isGroup: false })
-  });
-
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: toUser, isGroup: false }) });
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: toUser, chatId, name: currentUser, isGroup: false }) });
   loadChats();
 }
 
-// 4. Создание группы
 async function showNewGroup() {
   const groupName = prompt("Введите название группы:");
   if(!groupName) return;
-
-  const res = await fetch('/api/group', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ groupName, creator: currentUser })
-  });
-  const data = await res.json();
+  await fetch('/api/group', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ groupName, creator: currentUser }) });
   loadChats();
 }
 
-// 5. Открытие чата
 function openChat(id, name, isGroup) {
   currentChatId = id;
-  currentChatName = name;
   document.getElementById('main-screen').style.display = 'none';
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('chat-title').innerText = name;
   document.getElementById('chat-head-avatar').innerHTML = isGroup ? '👥' : name[0].toUpperCase();
-  
   loadMessages();
   if(messageInterval) clearInterval(messageInterval);
-  messageInterval = setInterval(loadMessages, 2000); // Проверка каждые 2 сек
+  messageInterval = setInterval(loadMessages, 2000);
 }
 
 function closeChat() {
@@ -158,36 +119,74 @@ function closeChat() {
   loadChats();
 }
 
-// 6. Загрузка сообщений
+// Обработка выбора файла
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 10 * 1024 * 1024) return alert("Файл слишком большой (макс 10МБ)");
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    selectedFile = e.target.result; // base64
+    selectedFileType = file.type;
+    alert("Файл прикреплен! Нажмите Отправить.");
+  };
+  reader.readAsDataURL(file);
+}
+
 async function loadMessages() {
   if(!currentChatId) return;
-  const res = await fetch('/api/messages/' + currentChatId);
+  // Передаем ?reader=логин, чтобы сервер отметил прочитанным
+  const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
   const msgs = await res.json();
   const box = document.getElementById('messages');
   box.innerHTML = '';
 
   msgs.forEach(m => {
-    const div = document.createElement('div');
     const isMe = m.from === currentUser;
+    const div = document.createElement('div');
     div.className = `msg-bubble ${isMe ? 'msg-my' : 'msg-their'}`;
-    // В группах показываем имя отправителя
-    div.innerHTML = (!isMe && currentChatId.startsWith('group_') ? `<b style="font-size:12px; color:#3390ec; display:block;">@${m.from}</b>` : '') + m.text;
+    
+    // Время
+    const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    // Галочки прочтения (только для своих сообщений)
+    let readStatus = '';
+    if(isMe) {
+      // Если в чате больше 1 человека (группа) или собеседник прочитал
+      readStatus = m.readBy.length > 1 ? ' ✓✓' : ' ✓';
+    }
+
+    let content = '';
+    if(m.fileData) {
+      if(m.fileType.startsWith('image/')) content += `<img src="${m.fileData}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
+      else if(m.fileType.startsWith('video/')) content += `<video src="${m.fileData}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
+      else content += `<a href="${m.fileData}" download="file" style="color:#fff;">📄 Скачать файл</a><br>`;
+    }
+    content += m.text;
+
+    div.innerHTML = `
+      ${(!isMe && currentChatId.startsWith('group_') ? `<b style="font-size:12px; color:#3390ec; display:block;">@${m.from}</b>` : '')}
+      <div>${content}</div>
+      <div style="font-size:10px; text-align:right; opacity:0.7; margin-top:5px;">${time}${readStatus}</div>
+    `;
     box.appendChild(div);
   });
   box.scrollTop = box.scrollHeight;
 }
 
-// 7. Отправка сообщения
 async function sendMessage() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
-  if(!text) return;
+  if(!text && !selectedFile) return;
 
   await fetch('/api/message', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text })
+    body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileData: selectedFile, fileType: selectedFileType })
   });
   input.value = '';
+  selectedFile = null;
+  selectedFileType = null;
   loadMessages();
 }
 </script>
