@@ -16,15 +16,17 @@ let onlineUsers = {};
 let typingUsers = {};
 
 app.post('/api/register', async (req, res) => {
-  const { username, phone, avatar, hidePhone } = req.body;
+  const { username, phone, avatar, hidePhone, bio } = req.body;
   const { data: existing } = await supabase.from('users').select('*').eq('username', username).single();
+  
   if (!existing) {
-    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false }]);
+    await supabase.from('users').insert([{ username, phone, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
   } else {
     let updateData = {};
     if (phone) updateData.phone = phone;
     if (avatar !== undefined) updateData.avatar = avatar;
     if (hidePhone !== undefined) updateData.hide_phone = hidePhone;
+    if (bio !== undefined) updateData.bio = bio;
     await supabase.from('users').update(updateData).eq('username', username);
   }
   res.json({ success: true });
@@ -37,8 +39,9 @@ app.get('/api/find-by-phone/:phone', async (req, res) => {
 
 app.get('/api/user/:username', async (req, res) => {
   const { data } = await supabase.from('users').select('*').eq('username', req.params.username).single();
-  if (data) res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar });
-  else res.json(null);
+  if (data) {
+    res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar, bio: data.bio });
+  } else res.json(null);
 });
 
 app.get('/api/chats/:username', async (req, res) => {
