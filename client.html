@@ -16,68 +16,68 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 const log = (s) => {
   const logEl = document.getElementById('log');
   logEl.textContent += s + '\n';
-  logEl.scrollTop = logEl.scrollHeight; // Автопрокрутка вниз
+  logEl.scrollTop = logEl.scrollHeight;
 };
 
-let myPriv, myId;
+let myKeys, myId;
+const knownKeys = {};
 
 async function init() {
   try {
-    const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveKey']);
-    myPriv = kp.privateKey;
-    const raw = await crypto.subtle.exportKey('raw', kp.publicKey);
-    myId = btoa(String.fromCharCode(...new Uint8Array(raw)));
+    myKeys = await crypto.subtle.generateKey(
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["encrypt", "decrypt"]
+    );
+    
+    const exported = await crypto.subtle.exportKey("spki", myKeys.publicKey);
+    myId = btoa(String.fromCharCode(...new Uint8Array(exported)));
     document.getElementById('myid').textContent = myId;
-    log('Ключи сгенерированы. Подключаемся к серверу...');
-    connectWS();
+    log('Ключи сгенерированы. Регистрация на сервере...');
+
+    // Регистрируемся
+    await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: myId, pubkey: myId })
+    });
+    log('Успешно зарегистрирован.');
+    
+    // Запускаем цикл проверки сообщений
+    setInterval(checkMessages, 2000);
   } catch (e) {
-    log('Ошибка генерации ключей: ' + e.message);
+    log('Ошибка: ' + e.message);
   }
 }
 
-async function sharedKey(theirRawB64) {
-  const raw = Uint8Array.from(atob(theirRawB64), c => c.charCodeAt(0));
-  const theirPub = await crypto.subtle.importKey('raw', raw, { name: 'X25519' }, true, []);
-  return crypto.subtle.deriveKey(
-    { name: 'X25519', public: theirPub },
-    myPriv,
-    { name: 'AES-GCM', length: 256 },
-    false, ['encrypt', 'decrypt']
-  );
-}
-
-let ws;
-function connectWS() {
-  ws = new WebSocket('ws://localhost:8080');
-  
-  ws.onopen = () => {
-    log('Соединение установлено.');
-    ws.send(JSON.stringify({ type: 'register', pubkey: myId }));
-  };
-
-  ws.onmessage = async (e) => {
-    const m = JSON.parse(e.data);
-    if (m.type === 'registered') log('Успешно зарегистрирован на сервере.');
-    if (m.type === 'delivered') log('Сообщение доставлено.');
-    if (m.type === 'offline') log('Собеседник не в сети.');
+async function checkMessages() {
+  try {
+    const res = await fetch('/api/messages/' + encodeURIComponent(myId));
+    const msgs = await res.json();
     
-    if (m.type === 'msg') {
-      try {
-        // Автоматически подставляем ID отправителя в поле ввода
-        document.getElementById('to').value = m.from;
-        
-        const key = await sharedKey(m.from);
-        const nonce = Uint8Array.from(atob(m.nonce), c => c.charCodeAt(0));
-        const ct = Uint8Array.from(atob(m.ciphertext), c => c.charCodeAt(0));
-        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ct);
-        log(`[Получено от ${m.from.slice(0,6)}...]: ${dec.decode(pt)}`);
-      } catch (err) { 
-        log('Ошибка расшифровки. Возможно, ключи не совпадают.'); 
+    for (let m of msgs) {
+      if (!knownKeys[m.from]) {
+        const keyRes = await fetch('/api/key/' + encodeURIComponent(m.from));
+        const keyData = await keyRes.json();
+        if (keyData.pubkey) knownKeys[m.from] = keyData.pubkey;
       }
+      
+      document.getElementById('to').value = m.from;
+      const rawPub = Uint8Array.from(atob(m.from), c => c.charCodeAt(0));
+      const theirPubKey = await crypto.subtle.importKey("spki", rawPub, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
+      
+      const encryptedAesKey = Uint8Array.from(atob(m.key), c => c.charCodeAt(0));
+      const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, myKeys.privateKey, encryptedAesKey);
+      
+      const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
+      const nonce = Uint8Array.from(atob(m.nonce), c => c.charCodeAt(0));
+      const ct = Uint8Array.from(atob(m.ciphertext), c => c.charCodeAt(0));
+      
+      const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, aesKey, ct);
+      log(`[${m.from.slice(0,6)}...]: ${dec.decode(pt)}`);
     }
-  };
-
-  ws.onclose = () => log('Соединение с сервером потеряно (сервер выключен?).');
+  } catch (e) {
+    // Игнорируем ошибки сети, просто ждем следующего раза
+  }
 }
 
 document.getElementById('send').onclick = async () => {
@@ -85,21 +85,39 @@ document.getElementById('send').onclick = async () => {
   const text = document.getElementById('text').value;
   
   if (!to || !text) { log('Заполните ID получателя и текст.'); return; }
-  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Нет соединения с сервером.'); return; }
 
   try {
-    const key = await sharedKey(to);
+    if (!knownKeys[to]) {
+      log('Запрос ключа у собеседника...');
+      const keyRes = await fetch('/api/key/' + encodeURIComponent(to));
+      const keyData = await keyRes.json();
+      if (!keyData.pubkey) { log('Собеседник не найден в сети.'); return; }
+      knownKeys[to] = keyData.pubkey;
+    }
+
+    const rawPub = Uint8Array.from(atob(knownKeys[to]), c => c.charCodeAt(0));
+    const theirPubKey = await crypto.subtle.importKey("spki", rawPub, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
+
+    const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    const aesKeyRaw = await crypto.subtle.exportKey("raw", aesKey);
+    const encryptedAesKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, theirPubKey, aesKeyRaw);
+
     const nonce = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, enc.encode(text));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, aesKey, enc.encode(text));
     
-    ws.send(JSON.stringify({
-      type: 'send', to: to,
-      nonce: btoa(String.fromCharCode(...nonce)),
-      ciphertext: btoa(String.fromCharCode(...new Uint8Array(ct)))
-    }));
+    await fetch('/api/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: to, from: myId,
+        key: btoa(String.fromCharCode(...new Uint8Array(encryptedAesKey))),
+        nonce: btoa(String.fromCharCode(...new Uint8Array(nonce))),
+        ciphertext: btoa(String.fromCharCode(...new Uint8Array(ct)))
+      })
+    });
     
     log(`[Вы]: ${text}`);
-    document.getElementById('text').value = ''; // Очистить поле после отправки
+    document.getElementById('text').value = ''; 
   } catch (e) {
     log('Ошибка отправки: ' + e.message);
   }
