@@ -60,6 +60,8 @@ body { background-color: #181818; color: #fff; height: 100vh; display: flex; jus
 .profile-name { font-size: 24px; font-weight: bold; }
 .profile-input { width: 100%; padding: 12px; margin-bottom: 15px; background: #2c2c2c; border: none; border-radius: 8px; color: #fff; outline: none; }
 .profile-save-btn { width: 100%; padding: 12px; background: #3390ec; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; }
+.profile-phone { color: #888; font-size: 16px; margin-top: 5px; }
+.chat-preview { font-size: 13px; color: #888; margin-top: 3px; }
 
 /* Аудио плеер */
 audio { width: 100%; max-width: 250px; height: 40px; margin-top: 5px; }
