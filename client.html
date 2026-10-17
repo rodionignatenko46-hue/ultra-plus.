@@ -125,6 +125,7 @@ let currentChatId = "", currentChatName = "", currentChatIsGroup = false, messag
 let selectedFile = null, selectedFileType = null;
 let replyToMessage = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
+let recordingTimer, recordingSeconds = 0;
 
 window.onload = () => {
   const savedUser = localStorage.getItem('ultra_user');
@@ -271,32 +272,60 @@ function handleFileSelect(input) {
   reader.readAsDataURL(file);
 }
 
-// --- ЗАПИСЬ ГОЛОСОВЫХ ---
+// --- ЗАПИСЬ ГОЛОСОВЫХ (С таймером) ---
 async function toggleRecording() {
   const micBtn = document.getElementById('mic-btn');
+  const inputField = document.getElementById('msg-input');
+  
   if(!isRecording) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
+      
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onload = async function(e) {
-          selectedFile = e.target.result; selectedFileType = 'audio/webm';
-          document.getElementById('msg-input').placeholder = "Голосовое готово!";
+          selectedFile = e.target.result; 
+          selectedFileType = 'audio/webm';
+          inputField.placeholder = "Голосовое готово! Нажмите ➤";
+          inputField.focus();
         };
         reader.readAsDataURL(audioBlob);
       };
+      
       mediaRecorder.start();
       isRecording = true;
+      recordingSeconds = 0;
+      
+      // Меняем интерфейс
       micBtn.classList.add('recording');
-    } catch(e) { alert("Нет доступа к микрофону"); }
+      micBtn.innerText = '⏹️'; // Кнопка стоп
+      inputField.placeholder = "Идет запись... 0:00";
+      inputField.disabled = true; // Блокируем текст
+      
+      // Запускаем таймер
+      recordingTimer = setInterval(() => {
+        recordingSeconds++;
+        const mins = Math.floor(recordingSeconds / 60);
+        const secs = recordingSeconds % 60;
+        inputField.placeholder = `Идет запись... ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }, 1000);
+
+    } catch(e) { alert("Нет доступа к микрофону. Разрешите доступ в настройках."); }
   } else {
+    // Останавливаем запись
     mediaRecorder.stop();
     isRecording = false;
+    clearInterval(recordingTimer);
+    
+    // Возвращаем интерфейс
     micBtn.classList.remove('recording');
+    micBtn.innerText = '🎤';
+    inputField.disabled = false;
+    inputField.placeholder = "Написать сообщение...";
   }
 }
 
