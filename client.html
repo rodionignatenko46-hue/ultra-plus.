@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css">
   <style>
     html, body { height: 100%; overflow: hidden; background: #0a0a14; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
-    
     #auth-screen { display: flex; flex-direction: column; padding: 20px; height: 100vh; justify-content: center; align-items: center; background: #0a0a14; }
     .auth-logo { width: 100px; height: 100px; background: linear-gradient(135deg, #6e44ff, #00d4ff); border-radius: 30%; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(110, 68, 255, 0.5); }
     #auth-screen h1 { margin-bottom: 20px; text-shadow: 0 0 20px rgba(110, 68, 255, 0.8); }
@@ -16,13 +15,10 @@
     .auth-input { padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white; width: 100%; max-width: 300px; margin-bottom: 10px; box-sizing: border-box; }
     .auth-submit { padding: 15px; background: #3390ec; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; max-width: 300px; margin-top: 10px; box-sizing: border-box; }
     #status-msg { margin-top: 20px; color: yellow; font-weight: bold; text-align: center; }
-
     #main-screen, #chat-screen, #profile-screen { display: none; height: 100vh; width: 100%; max-width: 400px; background: #0a0a14; flex-direction: column; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10; }
-    
     .header { background: #0a0a14; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
     .header h2 { font-size: 24px; font-weight: bold; background: linear-gradient(90deg, #6e44ff, #ff44cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
     .header button { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; margin-left: 10px; }
-    
     #chat-list { flex: 1; overflow-y: auto; padding: 10px 15px; padding-bottom: 80px; }
     .chat-item { display: flex; align-items: center; padding: 15px; border-radius: 20px; cursor: pointer; margin-bottom: 12px; background: #14142b; border: 1px solid #2a2a4a; position: relative; }
     .chat-avatar { width: 55px; height: 55px; border-radius: 50%; background: linear-gradient(45deg, #6e44ff, #00d4ff); display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 22px; font-weight: bold; overflow: hidden; flex-shrink: 0; padding: 2px; }
@@ -39,7 +35,6 @@
     .nav-item.active { color: #00d4ff; }
     .nav-icon { font-size: 22px; margin-bottom: 5px; }
     .nav-item span { font-size: 11px; }
-
     .chat-header { background: #14142b; padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #2a2a4a; }
     .back-btn { background: none; border: none; color: #6e44ff; font-size: 24px; margin-right: 15px; cursor: pointer; }
     #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -53,7 +48,6 @@
     .input-area input[type="text"] { flex: 1; padding: 12px 18px; border-radius: 25px; border: none; background: #0a0a14; color: #fff; outline: none; }
     .input-area button { background: #6e44ff; border: none; width: 45px; height: 45px; border-radius: 50%; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .icon-btn { background: none !important; color: #3390ec !important; font-size: 22px !important; box-shadow: none !important; }
-
     .profile-top { display: flex; flex-direction: column; align-items: center; padding: 30px 20px; background: #17212b; position: relative; }
     .profile-top .back-btn { position: absolute; top: 20px; left: 20px; }
     .profile-avatar-big { width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin-bottom: 15px; cursor: pointer; background: #242f3d; }
@@ -67,33 +61,27 @@
 </head>
 <body>
 
-<!-- ЭКРАН ВХОДА -->
 <div id="auth-screen">
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
-  
   <div style="display: flex; gap: 10px; margin-bottom: 20px;">
     <button class="auth-tab-btn" id="tab-login" style="color: white;">Вход</button>
     <button class="auth-tab-btn" id="tab-register" style="color: #888;">Регистрация</button>
   </div>
-
   <div id="form-login" style="display: flex; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
     <input id="login-name" class="auth-input" placeholder="Логин или номер" autocomplete="off" />
     <input id="login-pass" class="auth-input" type="password" placeholder="Пароль" />
     <button class="auth-submit" id="btn-login">Войти</button>
   </div>
-
   <div id="form-register" style="display: none; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
     <input id="reg-username" class="auth-input" placeholder="Логин" autocomplete="off" />
     <input id="reg-phone" class="auth-input" placeholder="Номер телефона" type="tel" />
     <input id="reg-pass" class="auth-input" type="password" placeholder="Пароль" />
     <button class="auth-submit" id="btn-register">Создать аккаунт</button>
   </div>
-
   <div id="status-msg"></div>
 </div>
 
-<!-- ГЛАВНЫЙ ЭКРАН -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -112,7 +100,6 @@
   </div>
 </div>
 
-<!-- ЭКРАН ЧАТА -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" id="btn-back">←</button>
@@ -132,7 +119,6 @@
   </div>
 </div>
 
-<!-- ЭКРАН ПРОФИЛЯ -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" id="btn-back-profile">←</button>
@@ -152,179 +138,6 @@
   </div>
 </div>
 
-<script>
-let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
-let currentChatId = "", currentChatName = "", messageInterval, statusInterval;
-let selectedFile = null, selectedFileType = null;
-let mediaRecorder, audioChunks = [], isRecording = false;
-let recordingTimer, recordingSeconds = 0;
-
-// Ждем полной загрузки страницы и привязываем все кнопки
-document.addEventListener('DOMContentLoaded', () => {
-  
-  // Вход и Регистрация
-  document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
-  document.getElementById('tab-register').addEventListener('click', () => switchTab('register'));
-  document.getElementById('btn-login').addEventListener('click', login);
-  document.getElementById('btn-register').addEventListener('click', register);
-
-  // Главный экран
-  document.getElementById('btn-find').addEventListener('click', findUser);
-  document.getElementById('btn-fab').addEventListener('click', findUser);
-  document.getElementById('btn-profile').addEventListener('click', showProfile);
-  document.getElementById('nav-profile').addEventListener('click', showProfile);
-
-  // Чат
-  document.getElementById('btn-back').addEventListener('click', closeChat);
-  document.getElementById('btn-attach').addEventListener('click', () => document.getElementById('file-input').click());
-  document.getElementById('btn-mic').addEventListener('click', toggleRecording);
-  document.getElementById('btn-send').addEventListener('click', sendMessage);
-  document.getElementById('file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
-  document.getElementById('msg-input').addEventListener('input', () => sendPulse(true));
-
-  // Профиль
-  document.getElementById('btn-back-profile').addEventListener('click', closeProfile);
-  document.getElementById('btn-avatar-upload').addEventListener('click', () => document.getElementById('avatar-upload').click());
-  document.getElementById('btn-change-photo').addEventListener('click', () => document.getElementById('avatar-upload').click());
-  document.getElementById('avatar-upload').addEventListener('change', uploadAvatar);
-  document.getElementById('btn-edit-bio').addEventListener('click', editBio);
-  document.getElementById('btn-hide-phone').addEventListener('click', toggleHidePhone);
-  document.getElementById('btn-logout').addEventListener('click', logout);
-
-  // Проверка: если уже вошли, показываем чаты
-  const savedUser = localStorage.getItem('ultra_user');
-  if(savedUser) {
-    currentUser = savedUser;
-    currentPhone = localStorage.getItem('ultra_phone') || '';
-    currentAvatar = localStorage.getItem('ultra_avatar') || '';
-    currentHidePhone = localStorage.getItem('ultra_hide') === 'true';
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
-    loadChats();
-    setInterval(() => sendPulse(false), 10000);
-  }
-});
-
-function switchTab(tab) {
-  document.getElementById('form-login').style.display = tab === 'login' ? 'flex' : 'none';
-  document.getElementById('form-register').style.display = tab === 'register' ? 'flex' : 'none';
-  document.getElementById('tab-login').style.color = tab === 'login' ? 'white' : '#888';
-  document.getElementById('tab-register').style.color = tab === 'register' ? 'white' : '#888';
-}
-
-async function register() {
-  const username = document.getElementById('reg-username').value.trim().replace('@', '');
-  const phone = document.getElementById('reg-phone').value.trim();
-  const password = document.getElementById('reg-pass').value;
-  const statusEl = document.getElementById('status-msg');
-  if(!username || !phone || !password) { statusEl.innerText = "Заполните все поля!"; return; }
-  
-  statusEl.innerText = "Отправка...";
-  try {
-    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
-    const data = await res.json();
-    if(data.success) {
-      statusEl.innerText = "УСПЕХ! Аккаунт создан.";
-      switchTab('login');
-    } else { statusEl.innerText = "ОШИБКА: " + data.error; }
-  } catch (e) { statusEl.innerText = "ОШИБКА СЕТИ: " + e.message; }
-}
-
-async function login() {
-  const loginVal = document.getElementById('login-name').value.trim().replace('@', '');
-  const password = document.getElementById('login-pass').value;
-  const statusEl = document.getElementById('status-msg');
-  if(!loginVal || !password) { statusEl.innerText = "Заполните все поля!"; return; }
-  
-  statusEl.innerText = "Вход...";
-  try {
-    const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: loginVal, password }) });
-    const data = await res.json();
-    if(data.success) {
-      statusEl.innerText = "УСПЕХ!";
-      currentUser = data.user.username; currentPhone = data.user.phone; currentAvatar = data.user.avatar;
-      localStorage.setItem('ultra_user', currentUser);
-      localStorage.setItem('ultra_phone', currentPhone);
-      localStorage.setItem('ultra_avatar', currentAvatar || '');
-      
-      setTimeout(() => {
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('main-screen').style.display = 'flex';
-        loadChats();
-        setInterval(() => sendPulse(false), 10000);
-      }, 500);
-      
-    } else { statusEl.innerText = "ОШИБКА: " + data.error; }
-  } catch (e) { statusEl.innerText = "ОШИБКА СЕТИ: " + e.message; }
-}
-
-function logout() { if(confirm("Выйти?")) { localStorage.clear(); location.reload(); } }
-function sendPulse(typing) { if(currentUser) fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) }); }
-
-async function showProfile() {
-  document.getElementById('main-screen').style.display = 'none';
-  document.getElementById('profile-screen').style.display = 'flex';
-  document.getElementById('prof-name').innerText = '@' + currentUser;
-  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
-  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
-  if(currentAvatar) document.getElementById('prof-avatar-img').src = currentAvatar;
-  const res = await fetch('/api/user/' + currentUser);
-  const data = await res.json();
-  document.getElementById('prof-bio').innerText = (data && data.bio) ? data.bio : 'Напишите что-нибудь о себе...';
-}
-
-async function editBio() {
-  const newBio = prompt("Ваш новый статус:");
-  if(newBio === null) return;
-  await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, bio: newBio }) });
-  document.getElementById('prof-bio').innerText = newBio || 'Напишите что-нибудь о себе...';
-}
-
-function closeProfile() { document.getElementById('profile-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; }
-
-function toggleHidePhone() {
-  currentHidePhone = !currentHidePhone;
-  localStorage.setItem('ultra_hide', currentHidePhone);
-  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
-  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
-  fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, hidePhone: currentHidePhone }) });
-}
-
-async function uploadAvatar(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const base64 = e.target.result;
-    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'avatar.jpg', fileData: base64, fileType: file.type }) });
-    const data = await res.json();
-    if(data.success) {
-      currentAvatar = data.url;
-      localStorage.setItem('ultra_avatar', currentAvatar);
-      document.getElementById('prof-avatar-img').src = currentAvatar;
-      await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: currentAvatar }) });
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-async function loadChats() {
-  const res = await fetch('/api/chats/' + currentUser);
-  const chats = await res.json();
-  const list = document.getElementById('chat-list');
-  list.innerHTML = '';
-  
-  if(chats.length === 0) {
-    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button id="btn-empty-find" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
-    document.getElementById('btn-empty-find').addEventListener('click', findUser);
-    return;
-  }
-
-  chats.sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
-
-  chats.forEach(chat => {
-    const div = document.createElement('div'); div.className = 'chat-item';
-    div.addEventListener('click', () => openChat(chat.id, chat.name, chat.isGroup));
-    
-    let timeStr = chat.lastTime ? new Date(chat.lastTime).toLocaleTimeString([], {hour: '2-digit', minu
+<script src="app.js"></script>
+</body>
+</html>
