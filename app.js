@@ -101,10 +101,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadChats() {
   const user = localStorage.getItem('ultra_user');
+  if(!user) return;
   const res = await fetch('/api/chats/' + user);
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
+  
+  if(chats.length === 0) {
+    list.innerHTML = `
+      <div style="text-align: center; margin-top: 50px;">
+        <div style="font-size: 80px; margin-bottom: 20px; text-shadow: 0 0 30px rgba(110, 68, 255, 0.8);">🔒</div>
+        <h3 style="font-size: 22px; margin-bottom: 10px;">Пока нет чатов</h3>
+        <p style="color: #888; margin-bottom: 30px;">Начните общение или пригласите друзей</p>
+      </div>
+    `;
+    return;
+  }
+
   chats.forEach(chat => {
     const div = document.createElement('div');
     div.className = 'chat-item';
@@ -113,7 +126,6 @@ async function loadChats() {
     list.appendChild(div);
   });
 }
-
 async function openChat(id, name) {
   currentChatId = id;
   document.getElementById('chat-title').innerText = '@' + name;
@@ -149,3 +161,5 @@ async function loadMessages() {
   });
   box.scrollTop = box.scrollHeight;
 }
+// Кнопка плюса делает то же, что и поиск
+document.getElementById('btn-fab').onclick = () => document.getElementById('btn-find').click();
