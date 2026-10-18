@@ -152,3 +152,16 @@ app.get('/api/messages/:chatId', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Сервер запущен на ' + PORT));
+// Сигнализация звонков
+let activeCalls = {};
+app.post('/api/call', (req, res) => {
+  const { from, to, type } = req.body;
+  if (type === 'start') activeCalls[to] = from;
+  else if (type === 'decline') delete activeCalls[to];
+  res.json({ success: true });
+});
+app.get('/api/call-status/:username', (req, res) => {
+  const caller = activeCalls[req.params.username];
+  if (caller) res.json({ incoming: true, from: caller });
+  else res.json({ incoming: false });
+});
