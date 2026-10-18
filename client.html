@@ -57,10 +57,15 @@
     .profile-phone { font-size: 15px; color: #7d8b99; }
     .profile-settings { padding: 20px; }
     .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #242f3d; cursor: pointer; font-size: 16px; }
+
+    /* Стили для экрана звонка */
+    #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a14; z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body>
 
+<!-- ЭКРАН ВХОДА -->
 <div id="auth-screen">
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
@@ -82,6 +87,7 @@
   <div id="status-msg"></div>
 </div>
 
+<!-- ГЛАВНЫЙ ЭКРАН -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -100,6 +106,7 @@
   </div>
 </div>
 
+<!-- ЭКРАН ЧАТА -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" id="btn-back">←</button>
@@ -108,6 +115,8 @@
       <h2 id="chat-title" style="font-size:16px;">Чат</h2>
       <span id="chat-status" style="font-size:12px;">в сети</span>
     </div>
+    <!-- КНОПКА ЗВОНКА -->
+    <button id="btn-call" style="margin-left: auto; background: none; border: none; color: #00ff88; font-size: 24px; cursor: pointer;">📞</button>
   </div>
   <div id="messages"></div>
   <div class="input-area">
@@ -119,6 +128,7 @@
   </div>
 </div>
 
+<!-- ЭКРАН ПРОФИЛЯ -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" id="btn-back-profile">←</button>
@@ -135,6 +145,18 @@
     <div class="setting-item" id="btn-change-photo"><span>📷 Выбрать фото</span></div>
     <div class="setting-item" id="btn-hide-phone"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
     <div class="setting-item" id="btn-logout"><span style="color: #ff4444;">🚪 Выйти</span></div>
+  </div>
+</div>
+
+<!-- ЭКРАН ЗВОНКА -->
+<div id="call-screen">
+  <div style="font-size: 80px; margin-bottom: 20px; animation: pulse 1.5s infinite;">📞</div>
+  <h2 id="call-name" style="font-size: 24px; margin-bottom: 10px;">@...</h2>
+  <p id="call-status" style="color: #888; margin-bottom: 40px;">Вызов...</p>
+  
+  <div style="display: flex; gap: 30px;">
+    <button id="btn-decline" style="background: #ff4444; border: none; width: 70px; height: 70px; border-radius: 50%; color: white; font-size: 30px; cursor: pointer;">✖</button>
+    <button id="btn-accept" style="background: #00ff88; border: none; width: 70px; height: 70px; border-radius: 50%; color: black; font-size: 30px; cursor: pointer;">✔</button>
   </div>
 </div>
 
