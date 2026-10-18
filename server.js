@@ -8,18 +8,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(__dirname, { etag: false, maxAge: 0 }));
+app.use(express.static(__dirname));
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
 let onlineUsers = {}; 
 let typingUsers = {};
 
-// РЕГИСТРАЦИЯ (с проверкой на ошибки)
+// РЕГИСТРАЦИЯ
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, phone, password, avatar, hidePhone, bio } = req.body;
-    
+    const { username, phone, password } = req.body;
     const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
     const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
 
@@ -27,13 +26,10 @@ app.post('/api/register', async (req, res) => {
     if (existingPhone) return res.json({ success: false, error: "Этот номер уже зарегистрирован!" });
     if (!password || password.length < 4) return res.json({ success: false, error: "Пароль должен быть не менее 4 символов!" });
 
-    const { error } = await supabase.from('users').insert([{ username, phone, password, avatar: avatar || '', hide_phone: hidePhone || false, bio: bio || '' }]);
-    
-    if (error) throw error;
+    await supabase.from('users').insert([{ username, phone, password }]);
     res.json({ success: true });
   } catch (err) {
-    console.error("ОШИБКА РЕГИСТРАЦИИ:", err);
-    res.json({ success: false, error: err.message || "Неизвестная ошибка" });
+    res.json({ success: false, error: err.message });
   }
 });
 
@@ -44,15 +40,11 @@ app.post('/api/login', async (req, res) => {
     const { data: user } = await supabase.from('users').select('*').or(`username.eq.${login},phone.eq.${login}`).single();
     
     if (!user) return res.json({ success: false, error: "Пользователь не найден." });
-    
-    // Если пароль в базе есть, проверяем его. Если нет (старый аккаунт) - пускаем.
-    if (user.password && user.password !== password) {
-      return res.json({ success: false, error: "Неверный пароль." });
-    }
+    if (user.password && user.password !== password) return res.json({ success: false, error: "Неверный пароль." });
 
     res.json({ success: true, user: { username: user.username, phone: user.phone, avatar: user.avatar, bio: user.bio } });
   } catch (err) {
-    res.json({ success: false, error: "Ошибка сервера при входе." });
+    res.json({ success: false, error: "Ошибка сервера." });
   }
 });
 
@@ -73,14 +65,26 @@ app.get('/api/user/:username', async (req, res) => {
   else res.json(null);
 });
 
-app.get('/api/find-by-phone/:phone', async (req, res) => {
-  const { data } = await supabase.from('users').select('username, avatar').eq('phone', req.params.phone).single();
-  res.json(data || null);
-});
-
+// ОБНОВЛЕННЫЙ ПОЛУЧАТЕЛЬ ЧАТОВ (с последним сообщением и непрочитанными)
 app.get('/api/chats/:username', async (req, res) => {
-  const { data } = await supabase.from('users').select('chats').eq('username', req.params.username).single();
-  res.json(data?.chats || []);
+  const { data: userData } = await supabase.from('users').select('chats').eq('username', req.params.username).single();
+  let chats = userData?.chats || [];
+
+  // Для каждого чата подтягиваем последнее сообщение и непрочитанные
+  for (let chat of chats) {
+    const { data: msgs } = await supabase.from('messages').select('*').eq('chat_id', chat.id).order('time', { ascending: false }).limit(1);
+    if (msgs && msgs.length > 0) {
+      chat.lastMessage = msgs[0].text || '📎 Файл';
+      chat.lastTime = msgs[0].time;
+      chat.lastSender = msgs[0].sender;
+    }
+    
+    // Считаем непрочитанные (где мы не отправитель и нас нет в read_by)
+    const { data: unread } = await supabase.from('messages').select('id').eq('chat_id', chat.id).neq('sender', req.params.username);
+    chat.unreadCount = unread ? unread.filter(m => !m.read_by || !m.read_by.includes(req.params.username)).length : 0;
+  }
+  
+  res.json(chats);
 });
 
 app.post('/api/addChat', async (req, res) => {
@@ -130,18 +134,14 @@ app.post('/api/message', async (req, res) => {
   res.json({ success: true, id: msgId });
 });
 
-app.delete('/api/message/:chatId/:msgId', async (req, res) => {
-  await supabase.from('messages').delete().eq('id', req.params.msgId);
-  res.json({ success: true });
-});
-
 app.get('/api/messages/:chatId', async (req, res) => {
   const { chatId } = req.params;
   const { reader } = req.query;
   const { data: msgs } = await supabase.from('messages').select('*').eq('chat_id', chatId).order('time', { ascending: true });
   if (reader && msgs) {
     for (let m of msgs) {
-      if (m.sender !== reader && !m.read_by.includes(reader)) {
+      if (m.sender !== reader && (!m.read_by || !m.read_by.includes(reader))) {
+        if (!m.read_by) m.read_by = [];
         m.read_by.push(reader);
         await supabase.from('messages').update({ read_by: m.read_by }).eq('id', m.id);
       }
