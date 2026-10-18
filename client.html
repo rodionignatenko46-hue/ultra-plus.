@@ -24,5 +24,58 @@
   <button id="btn-log">Войти</button>
   
   <div id="msg"></div>
+  <script>
+  // Ждем, пока страница загрузится
+  document.addEventListener('DOMContentLoaded', () => {
+    
+    // Кнопка РЕГИСТРАЦИИ
+    document.getElementById('btn-reg').addEventListener('click', async () => {
+      const username = document.getElementById('u').value;
+      const phone = document.getElementById('ph').value;
+      const password = document.getElementById('p').value;
+      const msg = document.getElementById('msg');
+      
+      if(!username || !phone || !password) { msg.innerText = "Заполните все поля!"; return; }
+      msg.innerText = "Отправка...";
+      
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ username, phone, password })
+        });
+        const data = await res.json();
+        msg.innerText = data.success ? "УСПЕХ! Аккаунт создан." : "ОШИБКА: " + data.error;
+      } catch(e) { msg.innerText = "ОШИБКА СЕТИ: " + e.message; }
+    });
+
+    // Кнопка ВХОДА
+    document.getElementById('btn-log').addEventListener('click', async () => {
+      const login = document.getElementById('u').value;
+      const password = document.getElementById('p').value;
+      const msg = document.getElementById('msg');
+      
+      if(!login || !password) { msg.innerText = "Заполните поля!"; return; }
+      msg.innerText = "Вход...";
+      
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ login, password })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+          msg.innerText = "УСПЕХ! Вы вошли как @" + data.user.username;
+          localStorage.setItem('ultra_user', data.user.username);
+        } else {
+          msg.innerText = "ОШИБКА: " + data.error;
+        }
+      } catch(e) { msg.innerText = "ОШИБКА СЕТИ: " + e.message; }
+    });
+
+  });
+  </script>
 </body>
 </html>
