@@ -157,7 +157,11 @@
   <div style="display: flex; gap: 30px;">
     <button id="btn-decline" style="background: #ff4444; border: none; width: 70px; height: 70px; border-radius: 50%; color: white; font-size: 30px; cursor: pointer;">✖</button>
     <button id="btn-accept" style="background: #00ff88; border: none; width: 70px; height: 70px; border-radius: 50%; color: black; font-size: 30px; cursor: pointer;">✔</button>
+    <button id="btn-mute" style="display: none; background: #555; border: none; width: 70px; height: 70px; border-radius: 50%; color: white; font-size: 30px; cursor: pointer;">🎤</button>
   </div>
+
+  <!-- Скрытый аудио-элемент для WebRTC -->
+  <audio id="remote-audio" autoplay></audio>
 </div>
 
 <script src="app.js"></script>
