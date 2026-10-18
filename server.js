@@ -14,41 +14,31 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
 let onlineUsers = {}; 
 let typingUsers = {};
+let callSignals = {}; // { username: [ {from, type, data} ] }
 
-// РЕГИСТРАЦИЯ
 app.post('/api/register', async (req, res) => {
   try {
     const { username, phone, password } = req.body;
     const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
     const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
-
-    if (existingUser) return res.json({ success: false, error: "Этот логин уже занят!" });
-    if (existingPhone) return res.json({ success: false, error: "Этот номер уже зарегистрирован!" });
-    if (!password || password.length < 4) return res.json({ success: false, error: "Пароль должен быть не менее 4 символов!" });
-
+    if (existingUser) return res.json({ success: false, error: "Логин занят!" });
+    if (existingPhone) return res.json({ success: false, error: "Номер занят!" });
+    if (!password || password.length < 4) return res.json({ success: false, error: "Пароль минимум 4 символа!" });
     await supabase.from('users').insert([{ username, phone, password }]);
     res.json({ success: true });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+  } catch (err) { res.json({ success: false, error: err.message }); }
 });
 
-// ВХОД
 app.post('/api/login', async (req, res) => {
   try {
     const { login, password } = req.body;
     const { data: user } = await supabase.from('users').select('*').or(`username.eq.${login},phone.eq.${login}`).single();
-    
-    if (!user) return res.json({ success: false, error: "Пользователь не найден." });
+    if (!user) return res.json({ success: false, error: "Не найден." });
     if (user.password && user.password !== password) return res.json({ success: false, error: "Неверный пароль." });
-
     res.json({ success: true, user: { username: user.username, phone: user.phone, avatar: user.avatar, bio: user.bio } });
-  } catch (err) {
-    res.json({ success: false, error: "Ошибка сервера." });
-  }
+  } catch (err) { res.json({ success: false, error: "Ошибка сервера." }); }
 });
 
-// ОБНОВЛЕНИЕ ПРОФИЛЯ
 app.post('/api/updateProfile', async (req, res) => {
   const { username, avatar, hidePhone, bio } = req.body;
   let updateData = {};
@@ -65,12 +55,9 @@ app.get('/api/user/:username', async (req, res) => {
   else res.json(null);
 });
 
-// ОБНОВЛЕННЫЙ ПОЛУЧАТЕЛЬ ЧАТОВ (с последним сообщением и непрочитанными)
 app.get('/api/chats/:username', async (req, res) => {
   const { data: userData } = await supabase.from('users').select('chats').eq('username', req.params.username).single();
   let chats = userData?.chats || [];
-
-  // Для каждого чата подтягиваем последнее сообщение и непрочитанные
   for (let chat of chats) {
     const { data: msgs } = await supabase.from('messages').select('*').eq('chat_id', chat.id).order('time', { ascending: false }).limit(1);
     if (msgs && msgs.length > 0) {
@@ -78,12 +65,9 @@ app.get('/api/chats/:username', async (req, res) => {
       chat.lastTime = msgs[0].time;
       chat.lastSender = msgs[0].sender;
     }
-    
-    // Считаем непрочитанные (где мы не отправитель и нас нет в read_by)
     const { data: unread } = await supabase.from('messages').select('id').eq('chat_id', chat.id).neq('sender', req.params.username);
     chat.unreadCount = unread ? unread.filter(m => !m.read_by || !m.read_by.includes(req.params.username)).length : 0;
   }
-  
   res.json(chats);
 });
 
@@ -107,9 +91,7 @@ app.post('/api/upload', async (req, res) => {
     if (error) throw error;
     const finalUrl = supabase.storage.from('ultra-filse').getPublicUrl(data.path).data.publicUrl;
     res.json({ success: true, url: finalUrl });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+  } catch (err) { res.json({ success: false, error: err.message }); }
 });
 
 app.post('/api/pulse', (req, res) => {
@@ -150,18 +132,20 @@ app.get('/api/messages/:chatId', async (req, res) => {
   res.json(msgs || []);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Сервер запущен на ' + PORT));
-// Сигнализация звонков
-let activeCalls = {};
-app.post('/api/call', (req, res) => {
-  const { from, to, type } = req.body;
-  if (type === 'start') activeCalls[to] = from;
-  else if (type === 'decline') delete activeCalls[to];
+// === СИГНАЛИЗАЦИЯ ЗВОНКОВ (WebRTC) ===
+app.post('/api/call/signal', (req, res) => {
+  const { to, from, type, data } = req.body;
+  if (!callSignals[to]) callSignals[to] = [];
+  callSignals[to].push({ from, type, data });
   res.json({ success: true });
 });
-app.get('/api/call-status/:username', (req, res) => {
-  const caller = activeCalls[req.params.username];
-  if (caller) res.json({ incoming: true, from: caller });
-  else res.json({ incoming: false });
+
+app.get('/api/call/signal/:username', (req, res) => {
+  const user = req.params.username;
+  const signals = callSignals[user] || [];
+  callSignals[user] = []; // Очищаем после прочтения
+  res.json(signals);
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('Сервер запущен на ' + PORT));
