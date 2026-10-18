@@ -9,21 +9,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
-app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'client.html')));
 
 let onlineUsers = {}; 
-let typingUsers = {};
-let callSignals = {}; // { username: [ {from, type, data} ] }
 
 app.post('/api/register', async (req, res) => {
   try {
     const { username, phone, password } = req.body;
-    const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).single();
-    const { data: existingPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
-    if (existingUser) return res.json({ success: false, error: "Логин занят!" });
-    if (existingPhone) return res.json({ success: false, error: "Номер занят!" });
-    if (!password || password.length < 4) return res.json({ success: false, error: "Пароль минимум 4 символа!" });
+    const { data: exUser } = await supabase.from('users').select('*').eq('username', username).single();
+    const { data: exPhone } = await supabase.from('users').select('*').eq('phone', phone).single();
+    if (exUser) return res.json({ success: false, error: "Логин занят!" });
+    if (exPhone) return res.json({ success: false, error: "Номер занят!" });
     await supabase.from('users').insert([{ username, phone, password }]);
     res.json({ success: true });
   } catch (err) { res.json({ success: false, error: err.message }); }
@@ -40,10 +36,9 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/updateProfile', async (req, res) => {
-  const { username, avatar, hidePhone, bio } = req.body;
+  const { username, avatar, bio } = req.body;
   let updateData = {};
   if (avatar !== undefined) updateData.avatar = avatar;
-  if (hidePhone !== undefined) updateData.hide_phone = hidePhone;
   if (bio !== undefined) updateData.bio = bio;
   await supabase.from('users').update(updateData).eq('username', username);
   res.json({ success: true });
@@ -51,7 +46,7 @@ app.post('/api/updateProfile', async (req, res) => {
 
 app.get('/api/user/:username', async (req, res) => {
   const { data } = await supabase.from('users').select('*').eq('username', req.params.username).single();
-  if (data) res.json({ username: data.username, phone: data.hide_phone ? 'Скрыт' : data.phone, avatar: data.avatar, bio: data.bio });
+  if (data) res.json({ username: data.username, phone: data.phone, avatar: data.avatar, bio: data.bio });
   else res.json(null);
 });
 
@@ -63,20 +58,17 @@ app.get('/api/chats/:username', async (req, res) => {
     if (msgs && msgs.length > 0) {
       chat.lastMessage = msgs[0].text || '📎 Файл';
       chat.lastTime = msgs[0].time;
-      chat.lastSender = msgs[0].sender;
     }
-    const { data: unread } = await supabase.from('messages').select('id').eq('chat_id', chat.id).neq('sender', req.params.username);
-    chat.unreadCount = unread ? unread.filter(m => !m.read_by || !m.read_by.includes(req.params.username)).length : 0;
   }
   res.json(chats);
 });
 
 app.post('/api/addChat', async (req, res) => {
-  const { username, chatId, name, isGroup } = req.body;
+  const { username, chatId, name } = req.body;
   const { data } = await supabase.from('users').select('chats').eq('username', username).single();
   let chats = data?.chats || [];
   if (!chats.find(c => c.id === chatId)) {
-    chats.push({ id: chatId, name, isGroup });
+    chats.push({ id: chatId, name });
     await supabase.from('users').update({ chats }).eq('username', username);
   }
   res.json({ success: true });
@@ -87,7 +79,7 @@ app.post('/api/upload', async (req, res) => {
     const { fileName, fileData, fileType } = req.body;
     const base64Data = fileData.replace(/^data:.*?;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    const { data, error } = await supabase.storage.from('ultra-filse').upload(`chat/${Date.now()}_${fileName}`, buffer, { contentType: fileType, upsert: true });
+    const { data, error } = await supabase.storage.from('ultra-filse').upload(`chat/${Date.now()}_${fileName}`, buffer, { contentType: fileType });
     if (error) throw error;
     const finalUrl = supabase.storage.from('ultra-filse').getPublicUrl(data.path).data.publicUrl;
     res.json({ success: true, url: finalUrl });
@@ -95,56 +87,22 @@ app.post('/api/upload', async (req, res) => {
 });
 
 app.post('/api/pulse', (req, res) => {
-  const { username, typing } = req.body;
+  const { username } = req.body;
   onlineUsers[username] = Date.now();
-  if (typing) typingUsers[username] = Date.now();
   res.json({ success: true });
 });
 
-app.get('/api/status/:username', (req, res) => {
-  const user = req.params.username;
-  const now = Date.now();
-  const isOnline = onlineUsers[user] && (now - onlineUsers[user] < 15000);
-  const isTyping = typingUsers[user] && (now - typingUsers[user] < 5000);
-  res.json({ isOnline, isTyping });
-});
-
 app.post('/api/message', async (req, res) => {
-  const { chatId, from, text, fileUrl, fileType, replyTo } = req.body;
+  const { chatId, from, text, fileUrl, fileType } = req.body;
   const msgId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-  await supabase.from('messages').insert([{ id: msgId, chat_id: chatId, sender: from, text: text || '', file_url: fileUrl || null, file_type: fileType || null, reply_to: replyTo || null, time: Date.now(), read_by: [from] }]);
-  res.json({ success: true, id: msgId });
+  await supabase.from('messages').insert([{ id: msgId, chat_id: chatId, sender: from, text: text || '', file_url: fileUrl || null, file_type: fileType || null, time: Date.now(), read_by: [from] }]);
+  res.json({ success: true });
 });
 
 app.get('/api/messages/:chatId', async (req, res) => {
   const { chatId } = req.params;
-  const { reader } = req.query;
   const { data: msgs } = await supabase.from('messages').select('*').eq('chat_id', chatId).order('time', { ascending: true });
-  if (reader && msgs) {
-    for (let m of msgs) {
-      if (m.sender !== reader && (!m.read_by || !m.read_by.includes(reader))) {
-        if (!m.read_by) m.read_by = [];
-        m.read_by.push(reader);
-        await supabase.from('messages').update({ read_by: m.read_by }).eq('id', m.id);
-      }
-    }
-  }
   res.json(msgs || []);
-});
-
-// === СИГНАЛИЗАЦИЯ ЗВОНКОВ (WebRTC) ===
-app.post('/api/call/signal', (req, res) => {
-  const { to, from, type, data } = req.body;
-  if (!callSignals[to]) callSignals[to] = [];
-  callSignals[to].push({ from, type, data });
-  res.json({ success: true });
-});
-
-app.get('/api/call/signal/:username', (req, res) => {
-  const user = req.params.username;
-  const signals = callSignals[user] || [];
-  callSignals[user] = []; // Очищаем после прочтения
-  res.json(signals);
 });
 
 const PORT = process.env.PORT || 3000;
