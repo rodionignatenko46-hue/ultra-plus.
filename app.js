@@ -316,3 +316,32 @@ async function sendMessage() {
   await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text, fileUrl, fileType: fileTypeToSend }) });
   loadMessages();
 }
+// --- ЗВОНКИ ---
+document.getElementById('btn-call').addEventListener('click', () => {
+  document.getElementById('call-screen').style.display = 'flex';
+  document.getElementById('call-name').innerText = '@' + currentChatName;
+  document.getElementById('call-status').innerText = 'Вызов...';
+  
+  fetch('/api/call', { 
+    method: 'POST', 
+    headers: {'Content-Type':'application/json'}, 
+    body: JSON.stringify({ from: currentUser, to: currentChatName, type: 'start' }) 
+  });
+});
+
+document.getElementById('btn-decline').addEventListener('click', () => {
+  document.getElementById('call-screen').style.display = 'none';
+  fetch('/api/call', { 
+    method: 'POST', 
+    headers: {'Content-Type':'application/json'}, 
+    body: JSON.stringify({ from: currentUser, to: currentChatName, type: 'decline' }) 
+  });
+});
+
+document.getElementById('btn-accept').addEventListener('click', () => {
+  document.getElementById('call-status').innerText = 'Соединение...';
+  setTimeout(() => {
+    alert("Звонок принят! (WebRTC звук добавим следующим шагом)");
+    document.getElementById('call-screen').style.display = 'none';
+  }, 1500);
+});
