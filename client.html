@@ -14,6 +14,11 @@
     .auth-tab.active { color: #00d4ff; border-bottom: 2px solid #00d4ff; }
     .auth-form { display: none; flex-direction: column; }
     .auth-form.active { display: flex; }
+    
+    /* Стили для карточек чатов */
+    .chat-meta { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; height: 45px; margin-left: 10px; }
+    .chat-time { font-size: 12px; color: #6e44ff; }
+    .unread-badge { background: #00ff88; color: #000; font-size: 12px; font-weight: bold; min-width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); padding: 0 5px; }
   </style>
 </head>
 <body>
@@ -124,7 +129,6 @@ let selectedFile = null, selectedFileType = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
 
-// --- ПРИВЯЗКА КНОПОК ---
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
   document.getElementById('tab-register').addEventListener('click', () => switchTab('register'));
@@ -152,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-hide-phone').addEventListener('click', toggleHidePhone);
   document.getElementById('btn-logout').addEventListener('click', logout);
 
-  // Проверка входа
   const savedUser = localStorage.getItem('ultra_user');
   if(savedUser) {
     currentUser = savedUser;
@@ -272,12 +275,45 @@ async function loadChats() {
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-  if(chats.length === 0) list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button id="btn-empty-find" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
-  if(chats.length === 0) document.getElementById('btn-empty-find').addEventListener('click', findUser);
   
+  if(chats.length === 0) {
+    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
+    return;
+  }
+
+  // Сортируем чаты по времени последнего сообщения
+  chats.sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
+
   chats.forEach(chat => {
-    const div = document.createElement('div'); div.className = 'chat-item'; div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    div.innerHTML = `<div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div><div class="chat-info"><div class="chat-name">@${chat.name}</div><div class="chat-preview">Открыть</div></div>`;
+    const div = document.createElement('div'); 
+    div.className = 'chat-item'; 
+    div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
+    
+    let timeStr = '';
+    if(chat.lastTime) {
+      const date = new Date(chat.lastTime);
+      timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+
+    let lastMsgText = chat.lastMessage || 'Нет сообщений';
+    if (chat.lastSender === currentUser) lastMsgText = 'Вы: ' + lastMsgText;
+
+    let unreadBadge = '';
+    if (chat.unreadCount > 0) {
+      unreadBadge = `<div class="unread-badge">${chat.unreadCount}</div>`;
+    }
+
+    div.innerHTML = `
+      <div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div>
+      <div class="chat-info">
+        <div class="chat-name">@${chat.name}</div>
+        <div class="chat-preview">${lastMsgText}</div>
+      </div>
+      <div class="chat-meta">
+        <div class="chat-time">${timeStr}</div>
+        ${unreadBadge}
+      </div>
+    `;
     list.appendChild(div);
   });
 }
@@ -372,18 +408,4 @@ async function toggleRecording() {
 async function loadMessages() {
   if(!currentChatId) return;
   try {
-    const res = await fetch(`/api/messages/${currentChatId}?reader=${currentUser}`);
-    const msgs = await res.json();
-    const box = document.getElementById('messages');
-    if(box.children.length === msgs.length && box.dataset.lastMsg === (msgs[msgs.length-1]?.id || '')) return;
-    box.innerHTML = ''; box.dataset.lastMsg = msgs[msgs.length-1]?.id || '';
-    msgs.forEach(m => {
-      const isMe = m.sender === currentUser;
-      const div = document.createElement('div'); div.className = `msg-container ${isMe ? 'my' : 'their'}`;
-      const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      let content = '';
-      if(m.file_url) {
-        if(m.file_type.startsWith('image/')) content += `<img src="${m.file_url}" style="max-width:100%; border-radius:10px; margin-bottom:5px;"><br>`;
-        else if(m.file_type.startsWith('video/')) content += `<video src="${m.file_url}" controls style="max-width:100%; border-radius:10px; margin-bottom:5px;"></video><br>`;
-        else if(m.file_type.startsWith('audio/')) content += `<audio src="${m.file_url}" controls style="max-width:100%; margin-bottom:5px;"></audio><br>`;
-        else
+    const res = await fetch(`/api/messages/${curr
