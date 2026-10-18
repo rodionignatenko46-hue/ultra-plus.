@@ -5,106 +5,130 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ультра+</title>
   <style>
-    body { background: #0a0a14; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    body { background: #0a0a14; color: #fff; font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
+    
+    /* Экран входа */
+    #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
     .logo { width: 100px; height: 100px; background: linear-gradient(135deg, #6e44ff, #00d4ff); border-radius: 30%; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; }
     input { padding: 15px; margin: 5px; border-radius: 10px; border: none; width: 250px; background: #1a1a35; color: #fff; box-sizing: border-box; }
     button { padding: 15px; margin: 5px; border-radius: 10px; border: none; background: #3390ec; color: #fff; font-weight: bold; cursor: pointer; width: 250px; }
     #msg { color: yellow; margin-top: 15px; }
+
+    /* Главный экран */
+    #main-screen { display: none; flex-direction: column; height: 100vh; width: 100%; max-width: 400px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: #0a0a14; z-index: 10; }
+    .header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a4a; }
+    .header h2 { margin: 0; font-size: 24px; background: linear-gradient(90deg, #6e44ff, #ff44cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    #chat-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .chat-item { padding: 15px; border-bottom: 1px solid #2a2a4a; cursor: pointer; color: white; }
+
+    /* Экран чата */
+    #chat-screen { display: none; flex-direction: column; height: 100vh; width: 100%; max-width: 400px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: #0a0a14; z-index: 20; }
+    .chat-header { padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #2a2a4a; }
+    #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .input-area { padding: 10px; display: flex; gap: 10px; border-top: 1px solid #2a2a4a; }
+    .input-area input { flex: 1; padding: 10px; border-radius: 20px; border: none; background: #1a1a35; color: #fff; width: auto; margin: 0; }
+    .input-area button { width: 45px; height: 45px; border-radius: 50%; padding: 0; margin: 0; }
+    .msg-me { background: #3390ec; align-self: flex-end; color: white; padding: 10px 15px; border-radius: 15px; max-width: 80%; }
+    .msg-their { background: #1a1a35; align-self: flex-start; color: white; padding: 10px 15px; border-radius: 15px; max-width: 80%; }
   </style>
 </head>
 <body>
+
+<div id="auth-screen">
   <div class="logo">🚀</div>
   <h2>Ультра+</h2>
-  
   <input id="u" placeholder="Логин" />
   <input id="p" type="password" placeholder="Пароль" />
-  <input id="ph" placeholder="Номер (только для регистрации)" />
-  
+  <input id="ph" placeholder="Номер (только для рег.)" />
   <button id="btn-reg">Зарегистрироваться</button>
   <button id="btn-log">Войти</button>
-  
   <div id="msg"></div>
-  <script>
-  // Ждем, пока страница загрузится
-  document.addEventListener('DOMContentLoaded', () => {
-    
-    // Кнопка РЕГИСТРАЦИИ
-    document.getElementById('btn-reg').addEventListener('click', async () => {
-      const username = document.getElementById('u').value;
-      const phone = document.getElementById('ph').value;
-      const password = document.getElementById('p').value;
-      const msg = document.getElementById('msg');
-      
-      if(!username || !phone || !password) { msg.innerText = "Заполните все поля!"; return; }
-      msg.innerText = "Отправка...";
-      
-      try {
-        const res = await fetch('/api/register', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ username, phone, password })
-        });
-        const data = await res.json();
-        msg.innerText = data.success ? "УСПЕХ! Аккаунт создан." : "ОШИБКА: " + data.error;
-      } catch(e) { msg.innerText = "ОШИБКА СЕТИ: " + e.message; }
-    });
-
-    // Кнопка ВХОДА
-    document.getElementById('btn-log').addEventListener('click', async () => {
-      const login = document.getElementById('u').value;
-      const password = document.getElementById('p').value;
-      const msg = document.getElementById('msg');
-      
-      if(!login || !password) { msg.innerText = "Заполните поля!"; return; }
-      msg.innerText = "Вход...";
-      
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ login, password })
-        });
-        const data = await res.json();
-        
-        if(data.success) {
-          msg.innerText = "УСПЕХ! Вы вошли как @" + data.user.username;
-          // Прячем экран входа и показываем чаты
-document.body.style.display = 'block'; // Сбрасываем центрирование
-document.getElementById('main-screen').style.display = 'flex';
-document.querySelectorAll('body > *:not(#main-screen):not(#chat-screen)').forEach(el => el.style.display = 'none');
-loadChats();
-          localStorage.setItem('ultra_user', data.user.username);
-        } else {
-          msg.innerText = "ОШИБКА: " + data.error;
-        }
-      } catch(e) { msg.innerText = "ОШИБКА СЕТИ: " + e.message; }
-    });
-
-  });
-  </script>
-  <!-- ГЛАВНЫЙ ЭКРАН (ЧАТЫ) -->
-<div id="main-screen" style="display: none; flex-direction: column; width: 100%; max-width: 400px; height: 100vh; background: #0a0a14; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10;">
-  <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-    <h2 style="margin: 0; font-size: 24px; background: linear-gradient(90deg, #6e44ff, #ff44cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Ультра+</h2>
-    <button id="btn-find" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">🔍</button>
-  </div>
-  <div id="chat-list" style="flex: 1; overflow-y: auto; padding: 10px 15px;"></div>
 </div>
 
-<!-- ЭКРАН ЧАТА -->
-<div id="chat-screen" style="display: none; flex-direction: column; width: 100%; max-width: 400px; height: 100vh; background: #0a0a14; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 20;">
-  <div style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #2a2a4a;">
-    <button id="btn-back" style="background: none; border: none; color: #6e44ff; font-size: 24px; margin-right: 15px; cursor: pointer;">←</button>
+<div id="main-screen">
+  <div class="header">
+    <h2>Ультра+</h2>
+    <button id="btn-find" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; width: auto;">🔍</button>
+  </div>
+  <div id="chat-list"></div>
+</div>
+
+<div id="chat-screen">
+  <div class="chat-header">
+    <button id="btn-back" style="background: none; border: none; color: #6e44ff; font-size: 24px; margin-right: 15px; cursor: pointer; width: auto;">←</button>
     <h2 id="chat-title" style="margin: 0; font-size: 18px;">@...</h2>
   </div>
-  <div id="messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;"></div>
-  <div style="padding: 10px; display: flex; gap: 10px; border-top: 1px solid #2a2a4a;">
-    <input id="msg-input" placeholder="Сообщение..." style="flex: 1; padding: 10px; border-radius: 20px; border: none; background: #1a1a35; color: #fff;" />
-    <button id="btn-send" style="padding: 10px 15px; border-radius: 50%; border: none; background: #3390ec; color: white; cursor: pointer;">➤</button>
+  <div id="messages"></div>
+  <div class="input-area">
+    <input id="msg-input" placeholder="Сообщение..." />
+    <button id="btn-send">➤</button>
   </div>
 </div>
-  // --- ЛОГИКА ЧАТОВ ---
-let currentChatId = "", currentChatName = "", msgInterval;
+
+<script>
+let currentChatId = "", msgInterval;
+
+document.getElementById('btn-reg').onclick = async () => {
+  const u = document.getElementById('u').value, p = document.getElementById('p').value, ph = document.getElementById('ph').value, msg = document.getElementById('msg');
+  if(!u || !p || !ph) return msg.innerText = "Заполните все поля!";
+  msg.innerText = "Ждем...";
+  try {
+    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: u, phone: ph, password: p }) });
+    const data = await res.json();
+    msg.innerText = data.success ? "УСПЕХ! Аккаунт создан." : "ОШИБКА: " + data.error;
+  } catch(e) { msg.innerText = "ОШИБКА СЕТИ"; }
+};
+
+document.getElementById('btn-log').onclick = async () => {
+  const u = document.getElementById('u').value, p = document.getElementById('p').value, msg = document.getElementById('msg');
+  if(!u || !p) return msg.innerText = "Заполните поля!";
+  msg.innerText = "Ждем...";
+  try {
+    const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: u, password: p }) });
+    const data = await res.json();
+    if(data.success) {
+      localStorage.setItem('ultra_user', data.user.username);
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display = 'flex';
+      loadChats();
+    } else msg.innerText = "ОШИБКА: " + data.error;
+  } catch(e) { msg.innerText = "ОШИБКА СЕТИ"; }
+};
+
+document.getElementById('btn-find').onclick = async () => {
+  const user = localStorage.getItem('ultra_user');
+  const choice = prompt("1 - по номеру, 2 - по @логину:");
+  if(!choice) return;
+  let query = prompt(choice === '1' ? "Номер друга:" : "Логин друга:");
+  if(!query) return;
+  const url = choice === '1' ? '/api/find-by-phone/' + encodeURIComponent(query) : '/api/user/' + encodeURIComponent(query);
+  const res = await fetch(url);
+  const data = await res.json();
+  if(!data) return alert("Не найден.");
+  if(data.username === user) return alert("Это вы!");
+  const chatId = [user, data.username].sort().join('_');
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: user, chatId, name: data.username }) });
+  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: user }) });
+  alert("Чат создан!");
+  loadChats();
+};
+
+document.getElementById('btn-back').onclick = () => {
+  document.getElementById('chat-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+  clearInterval(msgInterval);
+  loadChats();
+};
+
+document.getElementById('btn-send').onclick = async () => {
+  const user = localStorage.getItem('ultra_user');
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: user, text }) });
+  loadMessages();
+};
 
 async function loadChats() {
   const user = localStorage.getItem('ultra_user');
@@ -113,41 +137,18 @@ async function loadChats() {
   const chats = await res.json();
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
-  
   if(chats.length === 0) {
-    list.innerHTML = `<p style="text-align:center; color:#888; margin-top:20px;">Нет чатов. Нажмите 🔍 чтобы найти друга.</p>`;
+    list.innerHTML = '<p style="text-align:center; color:#888;">Нет чатов. Нажмите 🔍</p>';
     return;
   }
   chats.forEach(chat => {
     const div = document.createElement('div');
-    div.style.cssText = "padding: 15px; border-bottom: 1px solid #2a2a4a; cursor: pointer; color: white;";
+    div.className = 'chat-item';
     div.innerText = '@' + chat.name;
-    div.addEventListener('click', () => openChat(chat.id, chat.name));
+    div.onclick = () => openChat(chat.id, chat.name);
     list.appendChild(div);
   });
 }
-
-document.getElementById('btn-find').addEventListener('click', async () => {
-  const user = localStorage.getItem('ultra_user');
-  const choice = prompt("1 - по номеру, 2 - по @логину:");
-  if(!choice) return;
-  let query = prompt(choice === '1' ? "Номер друга:" : "Логин друга:");
-  if(!query) return;
-  
-  const url = choice === '1' ? '/api/find-by-phone/' + encodeURIComponent(query) : '/api/user/' + encodeURIComponent(query);
-  const res = await fetch(url);
-  const data = await res.json();
-  
-  if(!data) return alert("Не найден.");
-  if(data.username === user) return alert("Это вы!");
-  
-  const chatId = [user, data.username].sort().join('_');
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: user, chatId, name: data.username, isGroup: false }) });
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: user, isGroup: false }) });
-  
-  alert("Чат создан!");
-  loadChats();
-});
 
 function openChat(id, name) {
   currentChatId = id;
@@ -159,39 +160,21 @@ function openChat(id, name) {
   msgInterval = setInterval(loadMessages, 1500);
 }
 
-document.getElementById('btn-back').addEventListener('click', () => {
-  document.getElementById('chat-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display = 'flex';
-  clearInterval(msgInterval);
-  loadChats();
-});
-
 async function loadMessages() {
   const user = localStorage.getItem('ultra_user');
   if(!currentChatId) return;
-  const res = await fetch(`/api/messages/${currentChatId}?reader=${user}`);
+  const res = await fetch('/api/messages/' + currentChatId + '?reader=' + user);
   const msgs = await res.json();
   const box = document.getElementById('messages');
   box.innerHTML = '';
-  
   msgs.forEach(m => {
-    const isMe = m.sender === user;
     const div = document.createElement('div');
-    div.style.cssText = `padding: 10px 15px; border-radius: 15px; max-width: 80%; font-size: 15px; ${isMe ? 'background: #3390ec; align-self: flex-end; color: white;' : 'background: #1a1a35; align-self: flex-start; color: white;'}`;
+    div.className = m.sender === user ? 'msg-me' : 'msg-their';
     div.innerText = m.text;
     box.appendChild(div);
   });
   box.scrollTop = box.scrollHeight;
 }
-
-document.getElementById('btn-send').addEventListener('click', async () => {
-  const user = localStorage.getItem('ultra_user');
-  const input = document.getElementById('msg-input');
-  const text = input.value.trim();
-  if(!text) return;
-  input.value = '';
-  await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: user, text, fileUrl: null, fileType: null }) });
-  loadMessages();
-});
+</script>
 </body>
 </html>
