@@ -114,14 +114,25 @@ async function loadChats() {
   });
 }
 
-function openChat(id, name) {
+async function openChat(id, name) {
   currentChatId = id;
   document.getElementById('chat-title').innerText = '@' + name;
+  
+  // Подтягиваем аватарку друга
+  const res = await fetch('/api/user/' + name);
+  const data = await res.json();
+  if(data && data.avatar) {
+    document.getElementById('chat-head-avatar').src = data.avatar;
+  } else {
+    document.getElementById('chat-head-avatar').src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  }
+
   document.getElementById('main-screen').style.display = 'none';
   document.getElementById('chat-screen').style.display = 'flex';
   loadMessages();
   if(msgInterval) clearInterval(msgInterval);
   msgInterval = setInterval(loadMessages, 1500);
+}
 }
 
 async function loadMessages() {
