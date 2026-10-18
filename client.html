@@ -2,410 +2,92 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ультра+</title>
-  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  <style>
-    html, body { height: 100%; overflow: hidden; }
-    #chat-screen, #main-screen, #auth-screen { height: 100dvh; }
-    .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #2a2a4a; }
-    .auth-tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; color: #888; font-weight: bold; }
-    .auth-tab.active { color: #00d4ff; border-bottom: 2px solid #00d4ff; }
-    .auth-form { display: none; flex-direction: column; }
-    .auth-form.active { display: flex; }
-    
-    /* Стили для карточек чатов */
-    .chat-meta { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; height: 45px; margin-left: 10px; }
-    .chat-time { font-size: 12px; color: #6e44ff; }
-    .unread-badge { background: #00ff88; color: #000; font-size: 12px; font-weight: bold; min-width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); padding: 0 5px; }
-  </style>
 </head>
 <body>
-
-<!-- ЭКРАН ВХОДА -->
-<div id="auth-screen">
-  <div class="auth-logo">🚀</div>
-  <h1>Ультра+</h1>
-  
-  <div class="auth-tabs">
-    <div class="auth-tab active" id="tab-login">Вход</div>
-    <div class="auth-tab" id="tab-register">Регистрация</div>
-  </div>
-
-  <div id="form-login" class="auth-form active">
-    <div class="input-group">
-      <label>Логин или номер</label>
-      <input id="login-name" placeholder="@lorion4ik или +7999" autocomplete="off" />
-    </div>
-    <div class="input-group">
-      <label>Пароль</label>
-      <input id="login-pass" type="password" placeholder="Ваш пароль" />
-    </div>
-    <button id="btn-login">Войти</button>
-  </div>
-
-  <div id="form-register" class="auth-form">
-    <div class="input-group">
-      <label>Придумайте @логин</label>
-      <input id="reg-username" placeholder="lorion4ik" autocomplete="off" />
-    </div>
-    <div class="input-group">
-      <label>Номер телефона</label>
-      <input id="reg-phone" placeholder="+7 (999) 000-00-00" type="tel" />
-    </div>
-    <div class="input-group">
-      <label>Придумайте пароль</label>
-      <input id="reg-pass" type="password" placeholder="Минимум 4 символа" />
-    </div>
-    <button id="btn-register">Создать аккаунт</button>
-  </div>
-</div>
-
-<!-- ГЛАВНЫЙ ЭКРАН -->
-<div id="main-screen" style="display:none;">
-  <div class="header">
-    <h2>Ультра+</h2>
-    <div class="header-icons">
-      <button id="btn-find">🔍</button>
-      <button id="btn-profile">⚙️</button>
-    </div>
-  </div>
-  <div id="chat-list"></div>
-  <button class="fab" id="btn-fab">+</button>
-  <div class="bottom-nav">
-    <div class="nav-item active"><span class="nav-icon">💬</span><span>Чаты</span></div>
-    <div class="nav-item"><span class="nav-icon">📞</span><span>Звонки</span></div>
-    <div class="nav-item"><span class="nav-icon">👥</span><span>Контакты</span></div>
-    <div class="nav-item" id="btn-nav-profile"><span class="nav-icon">👤</span><span>Профиль</span></div>
-  </div>
-</div>
-
-<!-- ЭКРАН ЧАТА -->
-<div id="chat-screen" style="display:none;">
-  <div class="chat-header">
-    <button class="back-btn" id="btn-back">←</button>
-    <div class="chat-avatar" id="chat-head-avatar"></div>
-    <div>
-      <h2 id="chat-title" style="font-size:16px;">Чат</h2>
-      <span id="chat-status" style="font-size:12px;">в сети</span>
-    </div>
-  </div>
-  <div id="messages"></div>
-  <div class="input-area">
-    <input type="file" id="file-input" style="display: none;">
-    <button id="btn-attach" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">📎</button>
-    <button id="btn-mic" style="background: none; color: #3390ec; box-shadow: none; font-size: 22px;">🎤</button>
-    <input id="msg-input" placeholder="Написать сообщение...">
-    <button id="btn-send">➤</button>
-  </div>
-</div>
-
-<!-- ЭКРАН ПРОФИЛЯ -->
-<div id="profile-screen" style="display:none;">
-  <div class="profile-top">
-    <button class="back-btn" id="btn-back-profile" style="color: #fff; font-size: 24px;">←</button>
-    <div class="profile-avatar-big" id="btn-avatar-upload">
-      <img id="prof-avatar-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
-      <div class="avatar-edit-icon">📷</div>
-    </div>
-    <input type="file" id="avatar-upload" style="display: none;" accept="image/*">
-    <h2 id="prof-name" class="profile-name">@...</h2>
-    <div id="prof-bio" class="profile-bio">Напишите что-нибудь о себе...</div>
-    <div id="prof-phone" class="profile-phone">+...</div>
-  </div>
-  <div class="profile-settings">
-    <div class="setting-item" id="btn-edit-bio"><span>📝 Изменить статус</span></div>
-    <div class="setting-item" id="btn-change-photo"><span>📷 Выбрать фото</span></div>
-    <div class="setting-item" id="btn-hide-phone"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
-    <div class="setting-item" id="btn-logout"><span style="color: #ff4444;">🚪 Выйти</span></div>
-  </div>
-</div>
-
-<script>
-let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
-let currentChatId = "", currentChatName = "", messageInterval, statusInterval;
-let selectedFile = null, selectedFileType = null;
-let mediaRecorder, audioChunks = [], isRecording = false;
-let recordingTimer, recordingSeconds = 0;
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
-  document.getElementById('tab-register').addEventListener('click', () => switchTab('register'));
-  document.getElementById('btn-login').addEventListener('click', login);
-  document.getElementById('btn-register').addEventListener('click', register);
-  
-  document.getElementById('btn-find').addEventListener('click', findUser);
-  document.getElementById('btn-fab').addEventListener('click', findUser);
-  document.getElementById('btn-profile').addEventListener('click', showProfile);
-  document.getElementById('btn-nav-profile').addEventListener('click', showProfile);
-  
-  document.getElementById('btn-back').addEventListener('click', closeChat);
-  document.getElementById('btn-attach').addEventListener('click', () => document.getElementById('file-input').click());
-  document.getElementById('btn-mic').addEventListener('click', toggleRecording);
-  document.getElementById('btn-send').addEventListener('click', sendMessage);
-  document.getElementById('file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
-  document.getElementById('msg-input').addEventListener('input', () => sendPulse(true));
-
-  document.getElementById('btn-back-profile').addEventListener('click', closeProfile);
-  document.getElementById('btn-avatar-upload').addEventListener('click', () => document.getElementById('avatar-upload').click());
-  document.getElementById('btn-change-photo').addEventListener('click', () => document.getElementById('avatar-upload').click());
-  document.getElementById('avatar-upload').addEventListener('change', uploadAvatar);
-  document.getElementById('btn-edit-bio').addEventListener('click', editBio);
-  document.getElementById('btn-hide-phone').addEventListener('click', toggleHidePhone);
-  document.getElementById('btn-logout').addEventListener('click', logout);
-
-  const savedUser = localStorage.getItem('ultra_user');
-  if(savedUser) {
-    currentUser = savedUser;
-    currentPhone = localStorage.getItem('ultra_phone') || '';
-    currentAvatar = localStorage.getItem('ultra_avatar') || '';
-    currentHidePhone = localStorage.getItem('ultra_hide') === 'true';
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
-    loadChats();
-    setInterval(() => sendPulse(false), 10000);
-  }
-});
-
-function switchTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-  if(tab === 'login') {
-    document.getElementById('tab-login').classList.add('active');
-    document.getElementById('form-login').classList.add('active');
-  } else {
-    document.getElementById('tab-register').classList.add('active');
-    document.getElementById('form-register').classList.add('active');
-  }
-}
-
-async function register() {
-  const username = document.getElementById('reg-username').value.trim().replace('@', '');
-  const phone = document.getElementById('reg-phone').value.trim();
-  const password = document.getElementById('reg-pass').value;
-  if(!username || !phone || !password) return alert("Заполните все поля!");
-  
-  try {
-    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
-    const data = await res.json();
-    if(data.success) {
-      alert("Аккаунт создан! Теперь войдите.");
-      switchTab('login');
-    } else { alert("ОШИБКА: " + data.error); }
-  } catch (e) { alert("ОШИБКА СЕТИ: " + e.message); }
-}
-
-async function login() {
-  const loginVal = document.getElementById('login-name').value.trim().replace('@', '');
-  const password = document.getElementById('login-pass').value;
-  if(!loginVal || !password) return alert("Заполните все поля!");
-
-  try {
-    const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: loginVal, password }) });
-    const data = await res.json();
-    if(data.success) {
-      currentUser = data.user.username; 
-      currentPhone = data.user.phone;
-      currentAvatar = data.user.avatar;
-      localStorage.setItem('ultra_user', currentUser);
-      localStorage.setItem('ultra_phone', currentPhone);
-      localStorage.setItem('ultra_avatar', currentAvatar || '');
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('main-screen').style.display = 'flex';
-      loadChats();
-      setInterval(() => sendPulse(false), 10000);
-    } else { alert("Ошибка: " + data.error); }
-  } catch (e) { alert("ОШИБКА СЕТИ: " + e.message); }
-}
-
-function logout() { if(confirm("Выйти?")) { localStorage.clear(); location.reload(); } }
-function sendPulse(typing) { if(currentUser) fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) }); }
-
-async function showProfile() {
-  document.getElementById('main-screen').style.display = 'none';
-  document.getElementById('profile-screen').style.display = 'flex';
-  document.getElementById('prof-name').innerText = '@' + currentUser;
-  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
-  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
-  if(currentAvatar) document.getElementById('prof-avatar-img').src = currentAvatar;
-  const res = await fetch('/api/user/' + currentUser);
-  const data = await res.json();
-  document.getElementById('prof-bio').innerText = (data && data.bio) ? data.bio : 'Напишите что-нибудь о себе...';
-}
-
-async function editBio() {
-  const newBio = prompt("Ваш новый статус:");
-  if(newBio === null) return;
-  await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, bio: newBio }) });
-  document.getElementById('prof-bio').innerText = newBio || 'Напишите что-нибудь о себе...';
-}
-
-function closeProfile() { document.getElementById('profile-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; }
-
-function toggleHidePhone() {
-  currentHidePhone = !currentHidePhone;
-  localStorage.setItem('ultra_hide', currentHidePhone);
-  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
-  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
-  fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, hidePhone: currentHidePhone }) });
-}
-
-async function uploadAvatar(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const base64 = e.target.result;
-    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'avatar.jpg', fileData: base64, fileType: file.type }) });
-    const data = await res.json();
-    if(data.success) {
-      currentAvatar = data.url;
-      localStorage.setItem('ultra_avatar', currentAvatar);
-      document.getElementById('prof-avatar-img').src = currentAvatar;
-      await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, avatar: currentAvatar }) });
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-async function loadChats() {
-  const res = await fetch('/api/chats/' + currentUser);
-  const chats = await res.json();
-  const list = document.getElementById('chat-list');
-  list.innerHTML = '';
-  
-  if(chats.length === 0) {
-    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
-    return;
-  }
-
-  // Сортируем чаты по времени последнего сообщения
-  chats.sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
-
-  chats.forEach(chat => {
-    const div = document.createElement('div'); 
-    div.className = 'chat-item'; 
-    div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
+  <div id="auth-screen" style="display: flex; flex-direction: column; padding: 20px; height: 100vh; justify-content: center; align-items: center;">
+    <div class="auth-logo">🚀</div>
+    <h1>Ультра+</h1>
     
-    let timeStr = '';
-    if(chat.lastTime) {
-      const date = new Date(chat.lastTime);
-      timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <button onclick="switchTab('login')" style="background: none; color: white; border: none; font-size: 18px; font-weight: bold; cursor: pointer;">Вход</button>
+      <button onclick="switchTab('register')" style="background: none; color: #888; border: none; font-size: 18px; font-weight: bold; cursor: pointer;">Регистрация</button>
+    </div>
+
+    <div id="form-login" style="display: flex; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
+      <input id="login-name" placeholder="Логин или номер" style="padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white;" />
+      <input id="login-pass" type="password" placeholder="Пароль" style="padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white;" />
+      <button onclick="login()" style="padding: 15px; background: #3390ec; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">Войти</button>
+    </div>
+
+    <div id="form-register" style="display: none; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
+      <input id="reg-username" placeholder="Логин" style="padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white;" />
+      <input id="reg-phone" placeholder="Номер" style="padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white;" />
+      <input id="reg-pass" type="password" placeholder="Пароль" style="padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white;" />
+      <button onclick="register()" style="padding: 15px; background: #3390ec; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">Создать аккаунт</button>
+    </div>
+
+    <div id="status" style="margin-top: 20px; color: yellow; font-weight: bold;"></div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('form-login').style.display = tab === 'login' ? 'flex' : 'none';
+      document.getElementById('form-register').style.display = tab === 'register' ? 'flex' : 'none';
+      // Меняем цвет кнопок
+      const btns = document.querySelectorAll('button');
+      btns[0].style.color = tab === 'login' ? 'white' : '#888';
+      btns[1].style.color = tab === 'register' ? 'white' : '#888';
     }
 
-    let lastMsgText = chat.lastMessage || 'Нет сообщений';
-    if (chat.lastSender === currentUser) lastMsgText = 'Вы: ' + lastMsgText;
-
-    let unreadBadge = '';
-    if (chat.unreadCount > 0) {
-      unreadBadge = `<div class="unread-badge">${chat.unreadCount}</div>`;
+    async function register() {
+      const username = document.getElementById('reg-username').value.trim().replace('@', '');
+      const phone = document.getElementById('reg-phone').value.trim();
+      const password = document.getElementById('reg-pass').value;
+      const statusEl = document.getElementById('status');
+      
+      if(!username || !phone || !password) { statusEl.innerText = "Заполните все поля!"; return; }
+      statusEl.innerText = "Отправка...";
+      
+      try {
+        const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
+        const data = await res.json();
+        if(data.success) {
+          statusEl.innerText = "УСПЕХ! Аккаунт создан. Теперь войдите.";
+          switchTab('login');
+        } else {
+          statusEl.innerText = "ОШИБКА: " + data.error;
+        }
+      } catch (e) {
+        statusEl.innerText = "ОШИБКА СЕТИ: " + e.message;
+      }
     }
 
-    div.innerHTML = `
-      <div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div>
-      <div class="chat-info">
-        <div class="chat-name">@${chat.name}</div>
-        <div class="chat-preview">${lastMsgText}</div>
-      </div>
-      <div class="chat-meta">
-        <div class="chat-time">${timeStr}</div>
-        ${unreadBadge}
-      </div>
-    `;
-    list.appendChild(div);
-  });
-}
-
-async function findUser() {
-  const choice = prompt("1 - по номеру, 2 - по @логину:");
-  if(!choice) return;
-  let query = prompt(choice === '1' ? "Номер друга:" : "Логин друга:");
-  if(!query) return;
-  const url = choice === '1' ? '/api/find-by-phone/' + encodeURIComponent(query) : '/api/user/' + encodeURIComponent(query);
-  const res = await fetch(url);
-  const data = await res.json();
-  if(!data) return alert("Не найден.");
-  if(data.username === currentUser) return alert("Это вы!");
-  const chatId = [currentUser, data.username].sort().join('_');
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: data.username, isGroup: false }) });
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: data.username, chatId, name: currentUser, isGroup: false }) });
-  alert("Чат создан!"); loadChats();
-}
-
-function openChat(id, name, isGroup) {
-  currentChatId = id; currentChatName = name;
-  document.getElementById('main-screen').style.display = 'none';
-  document.getElementById('chat-screen').style.display = 'flex';
-  document.getElementById('chat-title').innerText = '@' + name;
-  loadMessages();
-  if(messageInterval) clearInterval(messageInterval);
-  messageInterval = setInterval(loadMessages, 1000);
-  if(statusInterval) clearInterval(statusInterval);
-  statusInterval = setInterval(checkStatus, 2000);
-}
-
-function closeChat() { document.getElementById('chat-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; clearInterval(messageInterval); clearInterval(statusInterval); loadChats(); }
-
-async function checkStatus() {
-  if(!currentChatName) return;
-  const res = await fetch('/api/status/' + currentChatName);
-  const data = await res.json();
-  const statusEl = document.getElementById('chat-status');
-  if(data.isTyping) { statusEl.innerText = 'печатает...'; statusEl.className = 'typing'; }
-  else if(data.isOnline) { statusEl.innerText = 'в сети'; statusEl.className = ''; statusEl.style.color = '#00ff88'; }
-  else { statusEl.innerText = 'был(а) недавно'; statusEl.className = ''; statusEl.style.color = '#888'; }
-}
-
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(event) { selectedFile = event.target.result; selectedFileType = file.type; document.getElementById('msg-input').placeholder = "Файл готов!"; };
-  reader.readAsDataURL(file);
-}
-
-async function toggleRecording() {
-  const micBtn = document.getElementById('btn-mic');
-  const inputField = document.getElementById('msg-input');
-  if(!isRecording) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onload = async function(event) {
-          inputField.placeholder = "Отправка голосового...";
-          const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'voice.webm', fileData: event.target.result, fileType: 'audio/webm' }) });
-          const data = await res.json();
-          if(data.success) {
-            await fetch('/api/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId: currentChatId, from: currentUser, text: '', fileUrl: data.url, fileType: 'audio/webm', replyTo: null }) });
-            loadMessages();
-            inputField.placeholder = "Написать сообщение...";
-          } else { alert("Ошибка: " + data.error); inputField.placeholder = "Написать сообщение..."; }
-        };
-        reader.readAsDataURL(audioBlob);
-      };
-      mediaRecorder.start(); isRecording = true; recordingSeconds = 0;
-      micBtn.classList.add('recording'); micBtn.innerText = '⏹️';
-      inputField.placeholder = "Идет запись... 0:00"; inputField.disabled = true;
-      recordingTimer = setInterval(() => {
-        recordingSeconds++;
-        inputField.placeholder = `Идет запись... ${Math.floor(recordingSeconds/60)}:${(recordingSeconds%60).toString().padStart(2,'0')}`;
-      }, 1000);
-    } catch(e) { alert("Нет доступа к микрофону."); }
-  } else {
-    mediaRecorder.stop(); isRecording = false; clearInterval(recordingTimer);
-    micBtn.classList.remove('recording'); micBtn.innerText = '🎤';
-    inputField.disabled = false; inputField.placeholder = "Написать сообщение...";
-  }
-}
-
-async function loadMessages() {
-  if(!currentChatId) return;
-  try {
-    const res = await fetch(`/api/messages/${curr
+    async function login() {
+      const loginVal = document.getElementById('login-name').value.trim().replace('@', '');
+      const password = document.getElementById('login-pass').value;
+      const statusEl = document.getElementById('status');
+      
+      if(!loginVal || !password) { statusEl.innerText = "Заполните все поля!"; return; }
+      statusEl.innerText = "Вход...";
+      
+      try {
+        const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: loginVal, password }) });
+        const data = await res.json();
+        if(data.success) {
+          statusEl.innerText = "УСПЕХ! Вход выполнен.";
+          localStorage.setItem('ultra_user', data.user.username);
+          localStorage.setItem('ultra_phone', data.user.phone);
+          alert("Вход выполнен! Теперь мы можем переходить к чатам.");
+        } else {
+          statusEl.innerText = "ОШИБКА: " + data.error;
+        }
+      } catch (e) {
+        statusEl.innerText = "ОШИБКА СЕТИ: " + e.message;
+      }
+    }
+  </script>
+</body>
+</html>
