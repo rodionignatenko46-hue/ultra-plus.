@@ -78,3 +78,43 @@ body { background-color: #0a0a14; color: #fff; height: 100vh; display: flex; jus
 .profile-phone { font-size: 15px; color: #7d8b99; }
 .profile-settings { padding: 20px; }
 .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #242f3d; cursor: pointer; font-size: 16px; color: #fff; }
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  background: #14142b;
+  border: 1px solid #2a2a4a;
+  transition: 0.3s;
+}
+
+.chat-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 45px;
+  margin-left: 10px;
+}
+
+.chat-time {
+  font-size: 12px;
+  color: #6e44ff;
+}
+
+.unread-badge {
+  background: #00ff88;
+  color: #000;
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+  padding: 0 5px;
+}
