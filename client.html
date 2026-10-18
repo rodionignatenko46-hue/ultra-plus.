@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Ультра+</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
   <style>
     html, body { height: 100%; overflow: hidden; background: #0a0a14; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
     #auth-screen { display: flex; flex-direction: column; padding: 20px; height: 100vh; justify-content: center; align-items: center; background: #0a0a14; }
@@ -57,15 +56,12 @@
     .profile-phone { font-size: 15px; color: #7d8b99; }
     .profile-settings { padding: 20px; }
     .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #242f3d; cursor: pointer; font-size: 16px; }
-
-    /* Стили для экрана звонка */
     #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a14; z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body>
 
-<!-- ЭКРАН ВХОДА -->
 <div id="auth-screen">
   <div class="auth-logo">🚀</div>
   <h1>Ультра+</h1>
@@ -87,7 +83,6 @@
   <div id="status-msg"></div>
 </div>
 
-<!-- ГЛАВНЫЙ ЭКРАН -->
 <div id="main-screen">
   <div class="header">
     <h2>Ультра+</h2>
@@ -106,7 +101,6 @@
   </div>
 </div>
 
-<!-- ЭКРАН ЧАТА -->
 <div id="chat-screen">
   <div class="chat-header">
     <button class="back-btn" id="btn-back">←</button>
@@ -115,7 +109,6 @@
       <h2 id="chat-title" style="font-size:16px;">Чат</h2>
       <span id="chat-status" style="font-size:12px;">в сети</span>
     </div>
-    <!-- КНОПКА ЗВОНКА -->
     <button id="btn-call" style="margin-left: auto; background: none; border: none; color: #00ff88; font-size: 24px; cursor: pointer;">📞</button>
   </div>
   <div id="messages"></div>
@@ -128,7 +121,6 @@
   </div>
 </div>
 
-<!-- ЭКРАН ПРОФИЛЯ -->
 <div id="profile-screen">
   <div class="profile-top">
     <button class="back-btn" id="btn-back-profile">←</button>
@@ -148,22 +140,165 @@
   </div>
 </div>
 
-<!-- ЭКРАН ЗВОНКА -->
 <div id="call-screen">
   <div style="font-size: 80px; margin-bottom: 20px; animation: pulse 1.5s infinite;">📞</div>
   <h2 id="call-name" style="font-size: 24px; margin-bottom: 10px;">@...</h2>
   <p id="call-status" style="color: #888; margin-bottom: 40px;">Вызов...</p>
-  
   <div style="display: flex; gap: 30px;">
     <button id="btn-decline" style="background: #ff4444; border: none; width: 70px; height: 70px; border-radius: 50%; color: white; font-size: 30px; cursor: pointer;">✖</button>
     <button id="btn-accept" style="background: #00ff88; border: none; width: 70px; height: 70px; border-radius: 50%; color: black; font-size: 30px; cursor: pointer;">✔</button>
     <button id="btn-mute" style="display: none; background: #555; border: none; width: 70px; height: 70px; border-radius: 50%; color: white; font-size: 30px; cursor: pointer;">🎤</button>
   </div>
-
-  <!-- Скрытый аудио-элемент для WebRTC -->
   <audio id="remote-audio" autoplay></audio>
 </div>
 
-<script src="app.js"></script>
-</body>
-</html>
+<script>
+let currentUser = "", currentPhone = "", currentAvatar = "", currentHidePhone = false;
+let currentChatId = "", currentChatName = "", messageInterval, statusInterval;
+let selectedFile = null, selectedFileType = null;
+let mediaRecorder, audioChunks = [], isRecording = false;
+let recordingTimer, recordingSeconds = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Вход и Регистрация
+  document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
+  document.getElementById('tab-register').addEventListener('click', () => switchTab('register'));
+  document.getElementById('btn-login').addEventListener('click', login);
+  document.getElementById('btn-register').addEventListener('click', register);
+
+  // Главный экран
+  document.getElementById('btn-find').addEventListener('click', findUser);
+  document.getElementById('btn-fab').addEventListener('click', findUser);
+  document.getElementById('btn-profile').addEventListener('click', showProfile);
+  document.getElementById('nav-profile').addEventListener('click', showProfile);
+
+  // Чат
+  document.getElementById('btn-back').addEventListener('click', closeChat);
+  document.getElementById('btn-attach').addEventListener('click', () => document.getElementById('file-input').click());
+  document.getElementById('btn-mic').addEventListener('click', toggleRecording);
+  document.getElementById('btn-send').addEventListener('click', sendMessage);
+  document.getElementById('file-input').addEventListener('change', handleFileSelect);
+  document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+  document.getElementById('msg-input').addEventListener('input', () => sendPulse(true));
+
+  // Профиль
+  document.getElementById('btn-back-profile').addEventListener('click', closeProfile);
+  document.getElementById('btn-avatar-upload').addEventListener('click', () => document.getElementById('avatar-upload').click());
+  document.getElementById('btn-change-photo').addEventListener('click', () => document.getElementById('avatar-upload').click());
+  document.getElementById('avatar-upload').addEventListener('change', uploadAvatar);
+  document.getElementById('btn-edit-bio').addEventListener('click', editBio);
+  document.getElementById('btn-hide-phone').addEventListener('click', toggleHidePhone);
+  document.getElementById('btn-logout').addEventListener('click', logout);
+
+  // Проверка входа
+  const savedUser = localStorage.getItem('ultra_user');
+  if(savedUser) {
+    currentUser = savedUser;
+    currentPhone = localStorage.getItem('ultra_phone') || '';
+    currentAvatar = localStorage.getItem('ultra_avatar') || '';
+    currentHidePhone = localStorage.getItem('ultra_hide') === 'true';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    loadChats();
+    setInterval(() => sendPulse(false), 10000);
+  }
+});
+
+function switchTab(tab) {
+  document.getElementById('form-login').style.display = tab === 'login' ? 'flex' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'flex' : 'none';
+  document.getElementById('tab-login').style.color = tab === 'login' ? 'white' : '#888';
+  document.getElementById('tab-register').style.color = tab === 'register' ? 'white' : '#888';
+}
+
+async function register() {
+  const username = document.getElementById('reg-username').value.trim().replace('@', '');
+  const phone = document.getElementById('reg-phone').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  const statusEl = document.getElementById('status-msg');
+  if(!username || !phone || !password) { statusEl.innerText = "Заполните все поля!"; return; }
+  
+  statusEl.innerText = "Отправка...";
+  try {
+    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, phone, password }) });
+    const data = await res.json();
+    if(data.success) {
+      statusEl.innerText = "УСПЕХ! Аккаунт создан.";
+      switchTab('login');
+    } else { statusEl.innerText = "ОШИБКА: " + data.error; }
+  } catch (e) { statusEl.innerText = "ОШИБКА СЕТИ: " + e.message; }
+}
+
+async function login() {
+  const loginVal = document.getElementById('login-name').value.trim().replace('@', '');
+  const password = document.getElementById('login-pass').value;
+  const statusEl = document.getElementById('status-msg');
+  if(!loginVal || !password) { statusEl.innerText = "Заполните все поля!"; return; }
+  
+  statusEl.innerText = "Вход...";
+  try {
+    const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: loginVal, password }) });
+    const data = await res.json();
+    if(data.success) {
+      statusEl.innerText = "УСПЕХ!";
+      currentUser = data.user.username; currentPhone = data.user.phone; currentAvatar = data.user.avatar;
+      localStorage.setItem('ultra_user', currentUser);
+      localStorage.setItem('ultra_phone', currentPhone);
+      localStorage.setItem('ultra_avatar', currentAvatar || '');
+      
+      setTimeout(() => {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-screen').style.display = 'flex';
+        loadChats();
+        setInterval(() => sendPulse(false), 10000);
+      }, 500);
+    } else { statusEl.innerText = "ОШИБКА: " + data.error; }
+  } catch (e) { statusEl.innerText = "ОШИБКА СЕТИ: " + e.message; }
+}
+
+function logout() { if(confirm("Выйти?")) { localStorage.clear(); location.reload(); } }
+function sendPulse(typing) { if(currentUser) fetch('/api/pulse', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, typing }) }); }
+
+async function showProfile() {
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('profile-screen').style.display = 'flex';
+  document.getElementById('prof-name').innerText = '@' + currentUser;
+  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
+  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
+  if(currentAvatar) document.getElementById('prof-avatar-img').src = currentAvatar;
+  const res = await fetch('/api/user/' + currentUser);
+  const data = await res.json();
+  document.getElementById('prof-bio').innerText = (data && data.bio) ? data.bio : 'Напишите что-нибудь о себе...';
+}
+
+async function editBio() {
+  const newBio = prompt("Ваш новый статус:");
+  if(newBio === null) return;
+  await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, bio: newBio }) });
+  document.getElementById('prof-bio').innerText = newBio || 'Напишите что-нибудь о себе...';
+}
+
+function closeProfile() { document.getElementById('profile-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; }
+
+function toggleHidePhone() {
+  currentHidePhone = !currentHidePhone;
+  localStorage.setItem('ultra_hide', currentHidePhone);
+  document.getElementById('hide-phone-status').innerText = currentHidePhone ? 'Вкл' : 'Выкл';
+  document.getElementById('prof-phone').innerText = currentHidePhone ? 'Номер скрыт' : currentPhone;
+  fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, hidePhone: currentHidePhone }) });
+}
+
+async function uploadAvatar(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const base64 = e.target.result;
+    const res = await fetch('/api/upload', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName: 'avatar.jpg', fileData: base64, fileType: file.type }) });
+    const data = await res.json();
+    if(data.success) {
+      currentAvatar = data.url;
+      localStorage.setItem('ultra_avatar', currentAvatar);
+      document.getElementById('prof-avatar-img').src = currentAvatar;
+      await fetch('/api/updateProfile', { method: 'POST', headers: {'Content-Type'
+                                                                    
