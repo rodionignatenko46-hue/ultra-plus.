@@ -7,23 +7,20 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
   <style>
-    html, body { height: 100%; overflow: hidden; background: #0a0a14; color: #fff; font-family: 'Segoe UI', sans-serif; }
+    html, body { height: 100%; overflow: hidden; background: #0a0a14; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
     
-    /* СТИЛЬ ВХОДА (как тебе понравилось) */
     #auth-screen { display: flex; flex-direction: column; padding: 20px; height: 100vh; justify-content: center; align-items: center; background: #0a0a14; }
     .auth-logo { width: 100px; height: 100px; background: linear-gradient(135deg, #6e44ff, #00d4ff); border-radius: 30%; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(110, 68, 255, 0.5); }
     #auth-screen h1 { margin-bottom: 20px; text-shadow: 0 0 20px rgba(110, 68, 255, 0.8); }
     .auth-tab-btn { background: none; border: none; font-size: 18px; font-weight: bold; cursor: pointer; padding: 10px; }
-    .auth-input { padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white; width: 100%; max-width: 300px; margin-bottom: 10px; }
-    .auth-submit { padding: 15px; background: #3390ec; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; max-width: 300px; margin-top: 10px; }
+    .auth-input { padding: 15px; border-radius: 10px; border: none; background: #1a1a35; color: white; width: 100%; max-width: 300px; margin-bottom: 10px; box-sizing: border-box; }
+    .auth-submit { padding: 15px; background: #3390ec; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; max-width: 300px; margin-top: 10px; box-sizing: border-box; }
     #status-msg { margin-top: 20px; color: yellow; font-weight: bold; text-align: center; }
 
-    /* СКРЫТЫЕ ЭКРАНЫ */
     #main-screen, #chat-screen, #profile-screen { display: none; height: 100vh; width: 100%; max-width: 400px; background: #0a0a14; flex-direction: column; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10; }
     
-    /* Главный экран */
     .header { background: #0a0a14; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .header h2 { font-size: 24px; font-weight: bold; background: linear-gradient(90deg, #6e44ff, #ff44cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header h2 { font-size: 24px; font-weight: bold; background: linear-gradient(90deg, #6e44ff, #ff44cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
     .header button { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; margin-left: 10px; }
     
     #chat-list { flex: 1; overflow-y: auto; padding: 10px 15px; padding-bottom: 80px; }
@@ -43,7 +40,6 @@
     .nav-icon { font-size: 22px; margin-bottom: 5px; }
     .nav-item span { font-size: 11px; }
 
-    /* Экран чата */
     .chat-header { background: #14142b; padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #2a2a4a; }
     .back-btn { background: none; border: none; color: #6e44ff; font-size: 24px; margin-right: 15px; cursor: pointer; }
     #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -58,7 +54,6 @@
     .input-area button { background: #6e44ff; border: none; width: 45px; height: 45px; border-radius: 50%; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .icon-btn { background: none !important; color: #3390ec !important; font-size: 22px !important; box-shadow: none !important; }
 
-    /* Экран профиля */
     .profile-top { display: flex; flex-direction: column; align-items: center; padding: 30px 20px; background: #17212b; position: relative; }
     .profile-top .back-btn { position: absolute; top: 20px; left: 20px; }
     .profile-avatar-big { width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin-bottom: 15px; cursor: pointer; background: #242f3d; }
@@ -78,21 +73,21 @@
   <h1>Ультра+</h1>
   
   <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button class="auth-tab-btn" id="tab-login" onclick="switchTab('login')" style="color: white;">Вход</button>
-    <button class="auth-tab-btn" id="tab-register" onclick="switchTab('register')" style="color: #888;">Регистрация</button>
+    <button class="auth-tab-btn" id="tab-login" style="color: white;">Вход</button>
+    <button class="auth-tab-btn" id="tab-register" style="color: #888;">Регистрация</button>
   </div>
 
   <div id="form-login" style="display: flex; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
     <input id="login-name" class="auth-input" placeholder="Логин или номер" autocomplete="off" />
     <input id="login-pass" class="auth-input" type="password" placeholder="Пароль" />
-    <button class="auth-submit" onclick="login()">Войти</button>
+    <button class="auth-submit" id="btn-login">Войти</button>
   </div>
 
   <div id="form-register" style="display: none; flex-direction: column; width: 100%; max-width: 300px; gap: 10px;">
     <input id="reg-username" class="auth-input" placeholder="Логин" autocomplete="off" />
     <input id="reg-phone" class="auth-input" placeholder="Номер телефона" type="tel" />
     <input id="reg-pass" class="auth-input" type="password" placeholder="Пароль" />
-    <button class="auth-submit" onclick="register()">Создать аккаунт</button>
+    <button class="auth-submit" id="btn-register">Создать аккаунт</button>
   </div>
 
   <div id="status-msg"></div>
@@ -103,24 +98,24 @@
   <div class="header">
     <h2>Ультра+</h2>
     <div>
-      <button onclick="findUser()">🔍</button>
-      <button onclick="showProfile()">⚙️</button>
+      <button id="btn-find">🔍</button>
+      <button id="btn-profile">⚙️</button>
     </div>
   </div>
   <div id="chat-list"></div>
-  <button class="fab" onclick="findUser()">+</button>
+  <button class="fab" id="btn-fab">+</button>
   <div class="bottom-nav">
     <div class="nav-item active"><span class="nav-icon">💬</span><span>Чаты</span></div>
     <div class="nav-item"><span class="nav-icon">📞</span><span>Звонки</span></div>
     <div class="nav-item"><span class="nav-icon">👥</span><span>Контакты</span></div>
-    <div class="nav-item" onclick="showProfile()"><span class="nav-icon">👤</span><span>Профиль</span></div>
+    <div class="nav-item" id="nav-profile"><span class="nav-icon">👤</span><span>Профиль</span></div>
   </div>
 </div>
 
 <!-- ЭКРАН ЧАТА -->
 <div id="chat-screen">
   <div class="chat-header">
-    <button class="back-btn" onclick="closeChat()">←</button>
+    <button class="back-btn" id="btn-back">←</button>
     <div class="chat-avatar" id="chat-head-avatar" style="width: 40px; height: 40px; margin-right: 10px;"></div>
     <div>
       <h2 id="chat-title" style="font-size:16px;">Чат</h2>
@@ -130,18 +125,18 @@
   <div id="messages"></div>
   <div class="input-area">
     <input type="file" id="file-input" style="display: none;">
-    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📎</button>
-    <button class="icon-btn" onclick="toggleRecording()" id="mic-btn">🎤</button>
+    <button class="icon-btn" id="btn-attach">📎</button>
+    <button class="icon-btn" id="btn-mic">🎤</button>
     <input id="msg-input" placeholder="Написать сообщение...">
-    <button onclick="sendMessage()">➤</button>
+    <button id="btn-send">➤</button>
   </div>
 </div>
 
 <!-- ЭКРАН ПРОФИЛЯ -->
 <div id="profile-screen">
   <div class="profile-top">
-    <button class="back-btn" onclick="closeProfile()">←</button>
-    <div class="profile-avatar-big" onclick="document.getElementById('avatar-upload').click()">
+    <button class="back-btn" id="btn-back-profile">←</button>
+    <div class="profile-avatar-big" id="btn-avatar-upload">
       <img id="prof-avatar-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
     </div>
     <input type="file" id="avatar-upload" style="display: none;" accept="image/*">
@@ -150,10 +145,10 @@
     <div id="prof-phone" class="profile-phone">+...</div>
   </div>
   <div class="profile-settings">
-    <div class="setting-item" onclick="editBio()"><span>📝 Изменить статус</span></div>
-    <div class="setting-item" onclick="document.getElementById('avatar-upload').click()"><span>📷 Выбрать фото</span></div>
-    <div class="setting-item" onclick="toggleHidePhone()"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
-    <div class="setting-item" onclick="logout()"><span style="color: #ff4444;">🚪 Выйти</span></div>
+    <div class="setting-item" id="btn-edit-bio"><span>📝 Изменить статус</span></div>
+    <div class="setting-item" id="btn-change-photo"><span>📷 Выбрать фото</span></div>
+    <div class="setting-item" id="btn-hide-phone"><span>🔒 Скрыть номер</span><span id="hide-phone-status" style="color: #3390ec;">Выкл</span></div>
+    <div class="setting-item" id="btn-logout"><span style="color: #ff4444;">🚪 Выйти</span></div>
   </div>
 </div>
 
@@ -164,7 +159,40 @@ let selectedFile = null, selectedFileType = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
 let recordingTimer, recordingSeconds = 0;
 
-window.onload = () => {
+// Ждем полной загрузки страницы и привязываем все кнопки
+document.addEventListener('DOMContentLoaded', () => {
+  
+  // Вход и Регистрация
+  document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
+  document.getElementById('tab-register').addEventListener('click', () => switchTab('register'));
+  document.getElementById('btn-login').addEventListener('click', login);
+  document.getElementById('btn-register').addEventListener('click', register);
+
+  // Главный экран
+  document.getElementById('btn-find').addEventListener('click', findUser);
+  document.getElementById('btn-fab').addEventListener('click', findUser);
+  document.getElementById('btn-profile').addEventListener('click', showProfile);
+  document.getElementById('nav-profile').addEventListener('click', showProfile);
+
+  // Чат
+  document.getElementById('btn-back').addEventListener('click', closeChat);
+  document.getElementById('btn-attach').addEventListener('click', () => document.getElementById('file-input').click());
+  document.getElementById('btn-mic').addEventListener('click', toggleRecording);
+  document.getElementById('btn-send').addEventListener('click', sendMessage);
+  document.getElementById('file-input').addEventListener('change', handleFileSelect);
+  document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+  document.getElementById('msg-input').addEventListener('input', () => sendPulse(true));
+
+  // Профиль
+  document.getElementById('btn-back-profile').addEventListener('click', closeProfile);
+  document.getElementById('btn-avatar-upload').addEventListener('click', () => document.getElementById('avatar-upload').click());
+  document.getElementById('btn-change-photo').addEventListener('click', () => document.getElementById('avatar-upload').click());
+  document.getElementById('avatar-upload').addEventListener('change', uploadAvatar);
+  document.getElementById('btn-edit-bio').addEventListener('click', editBio);
+  document.getElementById('btn-hide-phone').addEventListener('click', toggleHidePhone);
+  document.getElementById('btn-logout').addEventListener('click', logout);
+
+  // Проверка: если уже вошли, показываем чаты
   const savedUser = localStorage.getItem('ultra_user');
   if(savedUser) {
     currentUser = savedUser;
@@ -176,13 +204,7 @@ window.onload = () => {
     loadChats();
     setInterval(() => sendPulse(false), 10000);
   }
-  
-  // Привязка кнопок
-  document.getElementById('file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
-  document.getElementById('msg-input').addEventListener('input', () => sendPulse(true));
-  document.getElementById('avatar-upload').addEventListener('change', uploadAvatar);
-};
+});
 
 function switchTab(tab) {
   document.getElementById('form-login').style.display = tab === 'login' ? 'flex' : 'none';
@@ -220,7 +242,7 @@ async function login() {
     const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ login: loginVal, password }) });
     const data = await res.json();
     if(data.success) {
-      statusEl.innerText = "УСПЕХ! Вход выполнен.";
+      statusEl.innerText = "УСПЕХ!";
       currentUser = data.user.username; currentPhone = data.user.phone; currentAvatar = data.user.avatar;
       localStorage.setItem('ultra_user', currentUser);
       localStorage.setItem('ultra_phone', currentPhone);
@@ -231,7 +253,7 @@ async function login() {
         document.getElementById('main-screen').style.display = 'flex';
         loadChats();
         setInterval(() => sendPulse(false), 10000);
-      }, 1000);
+      }, 500);
       
     } else { statusEl.innerText = "ОШИБКА: " + data.error; }
   } catch (e) { statusEl.innerText = "ОШИБКА СЕТИ: " + e.message; }
@@ -294,44 +316,15 @@ async function loadChats() {
   list.innerHTML = '';
   
   if(chats.length === 0) {
-    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button onclick="findUser()" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
+    list.innerHTML = `<div style="text-align:center; margin-top: 40px;"><h3 style="color: #fff;">Здесь пока пусто</h3><button id="btn-empty-find" style="background: #3390ec; color: white; border: none; padding: 12px 24px; border-radius: 12px; margin-top: 15px; cursor:pointer;">Найти друга</button></div>`;
+    document.getElementById('btn-empty-find').addEventListener('click', findUser);
     return;
   }
 
   chats.sort((a, b) => (b.lastTime || 0) - (a.lastTime || 0));
 
   chats.forEach(chat => {
-    const div = document.createElement('div'); div.className = 'chat-item'; div.onclick = () => openChat(chat.id, chat.name, chat.isGroup);
-    let timeStr = chat.lastTime ? new Date(chat.lastTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
-    let lastMsgText = chat.lastMessage || 'Нет сообщений';
-    if (chat.lastSender === currentUser) lastMsgText = 'Вы: ' + lastMsgText;
-    let unreadBadge = chat.unreadCount > 0 ? `<div class="unread-badge">${chat.unreadCount}</div>` : '';
+    const div = document.createElement('div'); div.className = 'chat-item';
+    div.addEventListener('click', () => openChat(chat.id, chat.name, chat.isGroup));
     
-    div.innerHTML = `
-      <div class="chat-avatar"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"></div>
-      <div class="chat-info">
-        <div class="chat-name">@${chat.name}</div>
-        <div class="chat-preview">${lastMsgText}</div>
-      </div>
-      <div class="chat-meta">
-        <div class="chat-time">${timeStr}</div>
-        ${unreadBadge}
-      </div>
-    `;
-    list.appendChild(div);
-  });
-}
-
-async function findUser() {
-  const choice = prompt("1 - по номеру, 2 - по @логину:");
-  if(!choice) return;
-  let query = prompt(choice === '1' ? "Номер друга:" : "Логин друга:");
-  if(!query) return;
-  const url = choice === '1' ? '/api/find-by-phone/' + encodeURIComponent(query) : '/api/user/' + encodeURIComponent(query);
-  const res = await fetch(url);
-  const data = await res.json();
-  if(!data) return alert("Не найден.");
-  if(data.username === currentUser) return alert("Это вы!");
-  const chatId = [currentUser, data.username].sort().join('_');
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username: currentUser, chatId, name: data.username, isGroup: false }) });
-  await fetch('/api/addChat', { method: 'POST', headers: {'Content-Type':'application/json'}, bod
+    let timeStr = chat.lastTime ? new Date(chat.lastTime).toLocaleTimeString([], {hour: '2-digit', minu
