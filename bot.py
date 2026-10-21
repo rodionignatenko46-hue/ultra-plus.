@@ -14,16 +14,18 @@ API_BASE = "http://109.233.236.101:5000"
 # --- БАЗА ДАННЫХ ---
 conn = sqlite3.connect('schedule_bot.db', check_same_thread=False)
 cursor = conn.cursor()
-cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, group_name TEXT)''')
+# Добавляем колонку role (кто это: студент или препод)
+cursor.execute('''CREATE TABLE IF NOT EXISTS users 
+                  (user_id INTEGER PRIMARY KEY, group_name TEXT, role TEXT)''')
 conn.commit()
 
-def get_user_group(user_id):
-    cursor.execute("SELECT group_name FROM users WHERE user_id = ?", (user_id,))
+def get_user_data(user_id):
+    cursor.execute("SELECT group_name, role FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
-    return result[0] if result else None
+    return result if result else (None, None)
 
-def set_user_group(user_id, group_name):
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, group_name) VALUES (?, ?)", (user_id, group_name))
+def set_user_data(user_id, name, role):
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, group_name, role) VALUES (?, ?, ?)", (user_id, name, role))
     conn.commit()
 
 # --- РАБОТА С САЙТОМ ---
@@ -34,18 +36,20 @@ def get_groups():
     except:
         return []
 
-def get_schedule(group, date_from, date_to):
+def get_schedule(group_or_teacher, date_from, date_to, is_teacher=False):
     try:
-        url = f"{API_BASE}/schedule_range?group={requests.utils.quote(group)}&from={date_from}&to={date_to}"
+        # Если это препод, используем параметр teacher, если студент - group
+        param = "teacher" if is_teacher else "group"
+        url = f"{API_BASE}/schedule_range?{param}={requests.utils.quote(group_or_teacher)}&from={date_from}&to={date_to}"
         r = requests.get(url)
-        if r.status_code != 200: return "⚠️ Ошибка сервера."
+        
+        if r.status_code != 200: return "⚠️ Ошибка сервера. Возможно, неверное имя."
         data = r.json()
         if not data: return "На выбранные даты занятий нет."
         
         result = ""
         for day in data:
             date_obj = datetime.strptime(day['date'], '%Y-%m-%d')
-            # Красиво выводим дату
             result += f"\n📅 **{date_obj.strftime('%d.%m.%Y')}**\n"
             
             if not day.get('lessons'):
@@ -56,33 +60,45 @@ def get_schedule(group, date_from, date_to):
                 territory = lesson.get('Territory', '')
                 territory_text = f" | 📍 {territory}" if territory else ""
                 
+                # Для препода выводим группу, для студента - препода
+                if is_teacher:
+                    info_line = f"   👥 Группа: {lesson.get('Group', '')}{territory_text}\n"
+                else:
+                    info_line = f"   👨‍🏫 {lesson.get('Teacher', '')}{territory_text}\n"
+
                 result += (f"🔹 Пара {lesson.get('NumberLesson', '?')}: {lesson.get('Discipline', '')}\n"
-                           f"   👨‍🏫 {lesson.get('Teacher', '')}\n"
-                           f"   🚪 Ауд. {lesson.get('LectureHall', '')}{territory_text}\n\n")
+                           f"{info_line}"
+                           f"   🚪 Ауд. {lesson.get('LectureHall', '')}\n\n")
         return result
     except Exception as e:
         return f"Ошибка: {e}"
 
-# --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ДЛИННЫХ СООБЩЕНИЙ ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def send_long_message(chat_id, text, reply_markup=None):
-    # Если текст короткий, отправляем как есть
     if len(text) <= 4000:
         bot.send_message(chat_id, text, parse_mode='Markdown', reply_markup=reply_markup)
     else:
-        # Если длинный - разбиваем на куски
         chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
         for i, chunk in enumerate(chunks):
-            # Клавиатуру прикрепляем только к последнему сообщению
             markup = reply_markup if i == len(chunks) - 1 else None
             bot.send_message(chat_id, chunk, parse_mode='Markdown', reply_markup=markup)
 
 # --- КЛАВИАТУРЫ ---
-def get_main_menu():
+def get_role_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(telebot.types.KeyboardButton('📅 Расписание на сегодня'))
-    # Добавляем новые кнопки в один ряд
-    markup.add(telebot.types.KeyboardButton('📅 На неделю'), telebot.types.KeyboardButton('🗓 На месяц'))
-    markup.add(telebot.types.KeyboardButton('🔄 Сменить группу'))
+    markup.add(telebot.types.KeyboardButton('🎓 Я студент'), telebot.types.KeyboardButton('👨‍🏫 Я преподаватель'))
+    return markup
+
+def get_main_menu(is_teacher=False):
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    if is_teacher:
+        markup.add(telebot.types.KeyboardButton('📅 Расписание на сегодня'))
+        markup.add(telebot.types.KeyboardButton('📅 На неделю'), telebot.types.KeyboardButton('🗓 На месяц'))
+        markup.add(telebot.types.KeyboardButton('🔄 Сменить преподавателя'))
+    else:
+        markup.add(telebot.types.KeyboardButton('📅 Расписание на сегодня'))
+        markup.add(telebot.types.KeyboardButton('📅 На неделю'), telebot.types.KeyboardButton('🗓 На месяц'))
+        markup.add(telebot.types.KeyboardButton('🔄 Сменить группу'))
     return markup
 
 def get_groups_menu():
@@ -95,71 +111,72 @@ def get_groups_menu():
 # --- ОБРАБОТЧИКИ ---
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    user_group = get_user_group(message.chat.id)
+    name, role = get_user_data(message.chat.id)
     author_info = "🤖 **Создатель:** Игнатенко Р.В. (гр. 36тп)\n"
     
-    if user_group:
-        bot.send_message(message.chat.id, f"👋 С возвращением!\nТвоя группа: **{user_group}**.\n\n{author_info}", parse_mode='Markdown', reply_markup=get_main_menu())
+    if name and role:
+        title = "преподаватель" if role == "teacher" else "группа"
+        bot.send_message(message.chat.id, f"👋 С возвращением!\nТвой выбор: {title} **{name}**.\n\n{author_info}", parse_mode='Markdown', reply_markup=get_main_menu(role == "teacher"))
     else:
-        bot.send_message(message.chat.id, f"👋 Привет! Я бот для просмотра расписания.\n\n{author_info}\nВыбери свою группу:", parse_mode='Markdown', reply_markup=get_groups_menu())
+        bot.send_message(message.chat.id, f"👋 Привет! Я бот для просмотра расписания.\n\n{author_info}\nКто ты?", reply_markup=get_role_menu())
 
-@bot.message_handler(func=lambda message: message.text == '🔄 Сменить группу')
-def change_group(message):
-    bot.send_message(message.chat.id, "Выбери новую группу:", reply_markup=get_groups_menu())
+@bot.message_handler(func=lambda message: message.text == '🎓 Я студент')
+def choose_student(message):
+    bot.send_message(message.chat.id, "Выбери свою группу из списка:", reply_markup=get_groups_menu())
 
-# --- РАСПИСАНИЕ НА СЕГОДНЯ ---
-@bot.message_handler(func=lambda message: message.text == '📅 Расписание на сегодня')
-def today_schedule(message):
-    group = get_user_group(message.chat.id)
-    if not group:
-        bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
+@bot.message_handler(func=lambda message: message.text == '👨‍🏫 Я преподаватель')
+def choose_teacher(message):
+    bot.send_message(message.chat.id, "Напиши свою фамилию (например: Шалыгина):", reply_markup=telebot.types.ReplyKeyboardRemove())
+
+@bot.message_handler(func=lambda message: message.text in ['🔄 Сменить группу', '🔄 Сменить преподавателя'])
+def change_target(message):
+    name, role = get_user_data(message.chat.id)
+    if role == "teacher":
+        bot.send_message(message.chat.id, "Напиши фамилию другого преподавателя:")
+    else:
+        bot.send_message(message.chat.id, "Выбери новую группу:", reply_markup=get_groups_menu())
+
+# --- РАСПИСАНИЕ (ОБЩИЙ ОБРАБОТЧИК) ---
+@bot.message_handler(func=lambda message: message.text in ['📅 Расписание на сегодня', '📅 На неделю', '🗓 На месяц'])
+def show_schedule(message):
+    name, role = get_user_data(message.chat.id)
+    if not name or not role:
+        bot.send_message(message.chat.id, "Нажми /start, чтобы выбрать роль.")
         return
-    today = datetime.now().strftime('%Y-%m-%d')
-    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на сегодня для группы {group}...")
-    schedule = get_schedule(group, today, today)
-    send_long_message(message.chat.id, f"📚 Расписание на сегодня ({group}):\n{schedule}", reply_markup=get_main_menu())
 
-# --- РАСПИСАНИЕ НА НЕДЕЛЮ ---
-@bot.message_handler(func=lambda message: message.text == '📅 На неделю')
-def week_schedule(message):
-    group = get_user_group(message.chat.id)
-    if not group:
-        bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
-        return
-    
+    is_teacher = (role == "teacher")
     today = datetime.now()
-    end_week = today + timedelta(days=6) # Сегодня + 6 дней
-    date_from = today.strftime('%Y-%m-%d')
-    date_to = end_week.strftime('%Y-%m-%d')
     
-    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на неделю для группы {group}...")
-    schedule = get_schedule(group, date_from, date_to)
-    send_long_message(message.chat.id, f"📚 Расписание на неделю ({group}):\n{schedule}", reply_markup=get_main_menu())
+    if message.text == '📅 Расписание на сегодня':
+        date_from = date_to = today.strftime('%Y-%m-%d')
+        title = "на сегодня"
+    elif message.text == '📅 На неделю':
+        date_from = today.strftime('%Y-%m-%d')
+        date_to = (today + timedelta(days=6)).strftime('%Y-%m-%d')
+        title = "на неделю"
+    else:
+        date_from = today.strftime('%Y-%m-%d')
+        date_to = (today + timedelta(days=29)).strftime('%Y-%m-%d')
+        title = "на месяц"
 
-# --- РАСПИСАНИЕ НА МЕСЯЦ ---
-@bot.message_handler(func=lambda message: message.text == '🗓 На месяц')
-def month_schedule(message):
-    group = get_user_group(message.chat.id)
-    if not group:
-        bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
-        return
-    
-    today = datetime.now()
-    end_month = today + timedelta(days=29) # Следующие 30 дней
-    date_from = today.strftime('%Y-%m-%d')
-    date_to = end_month.strftime('%Y-%m-%d')
-    
-    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на месяц для группы {group}. Это может занять пару секунд...")
-    schedule = get_schedule(group, date_from, date_to)
-    send_long_message(message.chat.id, f"📚 Расписание на месяц ({group}):\n{schedule}", reply_markup=get_main_menu())
+    bot.send_message(message.chat.id, f"⏳ Загружаю расписание {title} для {name}...")
+    schedule = get_schedule(name, date_from, date_to, is_teacher)
+    send_long_message(message.chat.id, f"📚 Расписание {title} ({name}):\n{schedule}", reply_markup=get_main_menu(is_teacher))
 
-# --- ВЫБОР ГРУППЫ ---
+# --- ОБРАБОТКА ТЕКСТА (ВЫБОР ГРУППЫ ИЛИ ВВОД ФАМИЛИИ) ---
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     text = message.text
-    if text in get_groups():
-        set_user_group(message.chat.id, text)
-        bot.send_message(message.chat.id, f"✅ Отлично! Группа **{text}** сохранена.", parse_mode='Markdown', reply_markup=get_main_menu())
+    groups = get_groups()
+    
+    # Если пользователь ввел название группы
+    if text in groups:
+        set_user_data(message.chat.id, text, "student")
+        bot.send_message(message.chat.id, f"✅ Отлично! Группа **{text}** сохранена.", parse_mode='Markdown', reply_markup=get_main_menu(False))
+    # Если пользователь ввел фамилию (проверяем, что это не команда)
+    elif len(text) > 2 and text not in ['📅 Расписание на сегодня', '📅 На неделю', '🗓 На месяц']:
+        set_user_data(message.chat.id, text, "teacher")
+        bot.send_message(message.chat.id, f"✅ Принято! Ищу расписание для преподавателя **{text}**.", parse_mode='Markdown', reply_markup=get_main_menu(True))
     else:
         bot.send_message(message.chat.id, "Я не знаю такой команды. Нажми /start.")
 
