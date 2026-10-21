@@ -1,6 +1,6 @@
 import telebot
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3
 from flask import Flask
 import threading
@@ -53,7 +53,6 @@ def get_schedule(group, date_from, date_to):
                 continue
                 
             for lesson in day['lessons']:
-                # Берем площадку из поля Territory
                 territory = lesson.get('Territory', '')
                 territory_text = f" | 📍 {territory}" if territory else ""
                 
@@ -64,9 +63,25 @@ def get_schedule(group, date_from, date_to):
     except Exception as e:
         return f"Ошибка: {e}"
 
+# --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ДЛИННЫХ СООБЩЕНИЙ ---
+def send_long_message(chat_id, text, reply_markup=None):
+    # Если текст короткий, отправляем как есть
+    if len(text) <= 4000:
+        bot.send_message(chat_id, text, parse_mode='Markdown', reply_markup=reply_markup)
+    else:
+        # Если длинный - разбиваем на куски
+        chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+        for i, chunk in enumerate(chunks):
+            # Клавиатуру прикрепляем только к последнему сообщению
+            markup = reply_markup if i == len(chunks) - 1 else None
+            bot.send_message(chat_id, chunk, parse_mode='Markdown', reply_markup=markup)
+
+# --- КЛАВИАТУРЫ ---
 def get_main_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(telebot.types.KeyboardButton('📅 Расписание на сегодня'))
+    # Добавляем новые кнопки в один ряд
+    markup.add(telebot.types.KeyboardButton('📅 На неделю'), telebot.types.KeyboardButton('🗓 На месяц'))
     markup.add(telebot.types.KeyboardButton('🔄 Сменить группу'))
     return markup
 
@@ -92,19 +107,53 @@ def start_message(message):
 def change_group(message):
     bot.send_message(message.chat.id, "Выбери новую группу:", reply_markup=get_groups_menu())
 
+# --- РАСПИСАНИЕ НА СЕГОДНЯ ---
 @bot.message_handler(func=lambda message: message.text == '📅 Расписание на сегодня')
 def today_schedule(message):
     group = get_user_group(message.chat.id)
     if not group:
         bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
         return
-        
     today = datetime.now().strftime('%Y-%m-%d')
     bot.send_message(message.chat.id, f"⏳ Загружаю расписание на сегодня для группы {group}...")
-    
     schedule = get_schedule(group, today, today)
-    bot.send_message(message.chat.id, f"📚 Расписание ({group}):\n{schedule}", parse_mode='Markdown', reply_markup=get_main_menu())
+    send_long_message(message.chat.id, f"📚 Расписание на сегодня ({group}):\n{schedule}", reply_markup=get_main_menu())
 
+# --- РАСПИСАНИЕ НА НЕДЕЛЮ ---
+@bot.message_handler(func=lambda message: message.text == '📅 На неделю')
+def week_schedule(message):
+    group = get_user_group(message.chat.id)
+    if not group:
+        bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
+        return
+    
+    today = datetime.now()
+    end_week = today + timedelta(days=6) # Сегодня + 6 дней
+    date_from = today.strftime('%Y-%m-%d')
+    date_to = end_week.strftime('%Y-%m-%d')
+    
+    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на неделю для группы {group}...")
+    schedule = get_schedule(group, date_from, date_to)
+    send_long_message(message.chat.id, f"📚 Расписание на неделю ({group}):\n{schedule}", reply_markup=get_main_menu())
+
+# --- РАСПИСАНИЕ НА МЕСЯЦ ---
+@bot.message_handler(func=lambda message: message.text == '🗓 На месяц')
+def month_schedule(message):
+    group = get_user_group(message.chat.id)
+    if not group:
+        bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
+        return
+    
+    today = datetime.now()
+    end_month = today + timedelta(days=29) # Следующие 30 дней
+    date_from = today.strftime('%Y-%m-%d')
+    date_to = end_month.strftime('%Y-%m-%d')
+    
+    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на месяц для группы {group}. Это может занять пару секунд...")
+    schedule = get_schedule(group, date_from, date_to)
+    send_long_message(message.chat.id, f"📚 Расписание на месяц ({group}):\n{schedule}", reply_markup=get_main_menu())
+
+# --- ВЫБОР ГРУППЫ ---
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     text = message.text
