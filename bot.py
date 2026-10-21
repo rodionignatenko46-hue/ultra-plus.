@@ -5,9 +5,10 @@ import sqlite3
 from flask import Flask
 import threading
 import os
+import json
 
-# ВСТАВЬ СВОЙ ТОКЕН
-TOKEN = '8980864965:AAErIbgjJ6P_qN_HS-C_KpFy5Vjeupg88pA'
+# Твой токен
+TOKEN = '8980864965:AAErIbgjJ6P_qN_HS-C_KpFy5Vjeupg88pA' # НЕ ЗАБУДЬ ВСТАВИТЬ НОВЫЙ ТОКЕН!
 bot = telebot.TeleBot(TOKEN)
 API_BASE = "http://109.233.236.101:5000"
 
@@ -39,15 +40,24 @@ def get_schedule(group, date_from, date_to):
         if r.status_code != 200: return "⚠️ Ошибка сервера."
         data = r.json()
         if not data: return "На выбранные даты занятий нет."
+        
         result = ""
         for day in data:
             date_obj = datetime.strptime(day['date'], '%Y-%m-%d')
             result += f"\n📅 **{date_obj.strftime('%d.%m.%Y')}**\n"
+            
             if not day.get('lessons'):
                 result += "Занятий нет.\n"
                 continue
+                
             for lesson in day['lessons']:
-                result += f"🔹 Пара {lesson.get('NumberLesson', '?')}: {lesson.get('Discipline', '')}\n   👨‍🏫 {lesson.get('Teacher', '')} | 🚪 Ауд. {lesson.get('LectureHall', '')}\n"
+                # Ищем площадку (пробуем разные названия из API)
+                platform = lesson.get('Building') or lesson.get('Platform') or lesson.get('Korpus') or lesson.get('Housing') or ""
+                platform_text = f" | 📍 Площадка {platform}" if platform else ""
+                
+                result += (f"🔹 Пара {lesson.get('NumberLesson', '?')}: {lesson.get('Discipline', '')}\n"
+                           f"   👨‍🏫 {lesson.get('Teacher', '')}\n"
+                           f"   🚪 Ауд. {lesson.get('LectureHall', '')}{platform_text}\n")
         return result
     except Exception as e:
         return f"Ошибка: {e}"
@@ -68,10 +78,14 @@ def get_groups_menu():
 @bot.message_handler(commands=['start'])
 def start_message(message):
     user_group = get_user_group(message.chat.id)
+    
+    # Текст с автором
+    author_info = "🤖 **Создатель:** Игнатенко Р.В. (гр. 36тп)\n"
+    
     if user_group:
-        bot.send_message(message.chat.id, f"👋 С возвращением!\nТвоя группа: **{user_group}**.", parse_mode='Markdown', reply_markup=get_main_menu())
+        bot.send_message(message.chat.id, f"👋 С возвращением!\nТвоя группа: **{user_group}**.\n\n{author_info}", parse_mode='Markdown', reply_markup=get_main_menu())
     else:
-        bot.send_message(message.chat.id, "👋 Привет! Выбери свою группу:", reply_markup=get_groups_menu())
+        bot.send_message(message.chat.id, f"👋 Привет! Я бот для просмотра расписания.\n\n{author_info}\nВыбери свою группу:", parse_mode='Markdown', reply_markup=get_groups_menu())
 
 @bot.message_handler(func=lambda message: message.text == '🔄 Сменить группу')
 def change_group(message):
@@ -84,7 +98,7 @@ def today_schedule(message):
         bot.send_message(message.chat.id, "Сначала выбери группу!", reply_markup=get_groups_menu())
         return
     today = datetime.now().strftime('%Y-%m-%d')
-    bot.send_message(message.chat.id, f"⏳ Загружаю...")
+    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на сегодня...")
     schedule = get_schedule(group, today, today)
     bot.send_message(message.chat.id, f"📚 Расписание ({group}):\n{schedule}", parse_mode='Markdown', reply_markup=get_main_menu())
 
@@ -93,9 +107,9 @@ def handle_text(message):
     text = message.text
     if text in get_groups():
         set_user_group(message.chat.id, text)
-        bot.send_message(message.chat.id, f"✅ Группа **{text}** сохранена.", parse_mode='Markdown', reply_markup=get_main_menu())
+        bot.send_message(message.chat.id, f"✅ Отлично! Группа **{text}** сохранена.", parse_mode='Markdown', reply_markup=get_main_menu())
     else:
-        bot.send_message(message.chat.id, "Нажми /start.")
+        bot.send_message(message.chat.id, "Я не знаю такой команды. Нажми /start.")
 
 # --- ЗАПУСК ДЛЯ RENDER ---
 app = Flask(__name__)
