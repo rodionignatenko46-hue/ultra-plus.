@@ -5,9 +5,8 @@ import sqlite3
 from flask import Flask
 import threading
 import os
-import json
 
-# ВСТАВЬ СВОЙ НОВЫЙ ТОКЕН (поменяй через /revoke у BotFather)
+# ВСТАВЬ СВОЙ ТОКЕН
 TOKEN = '8980864965:AAErIbgjJ6P_qN_HS-C_KpFy5Vjeupg88pA'
 bot = telebot.TeleBot(TOKEN)
 API_BASE = "http://109.233.236.101:5000"
@@ -35,6 +34,36 @@ def get_groups():
     except:
         return []
 
+def get_schedule(group, date_from, date_to):
+    try:
+        url = f"{API_BASE}/schedule_range?group={requests.utils.quote(group)}&from={date_from}&to={date_to}"
+        r = requests.get(url)
+        if r.status_code != 200: return "⚠️ Ошибка сервера."
+        data = r.json()
+        if not data: return "На выбранные даты занятий нет."
+        
+        result = ""
+        for day in data:
+            date_obj = datetime.strptime(day['date'], '%Y-%m-%d')
+            # Красиво выводим дату
+            result += f"\n📅 **{date_obj.strftime('%d.%m.%Y')}**\n"
+            
+            if not day.get('lessons'):
+                result += "Занятий нет.\n"
+                continue
+                
+            for lesson in day['lessons']:
+                # Берем площадку из поля Territory
+                territory = lesson.get('Territory', '')
+                territory_text = f" | 📍 {territory}" if territory else ""
+                
+                result += (f"🔹 Пара {lesson.get('NumberLesson', '?')}: {lesson.get('Discipline', '')}\n"
+                           f"   👨‍🏫 {lesson.get('Teacher', '')}\n"
+                           f"   🚪 Ауд. {lesson.get('LectureHall', '')}{territory_text}\n\n")
+        return result
+    except Exception as e:
+        return f"Ошибка: {e}"
+
 def get_main_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(telebot.types.KeyboardButton('📅 Расписание на сегодня'))
@@ -48,7 +77,7 @@ def get_groups_menu():
     markup.add(*buttons)
     return markup
 
-# --- ОБРАБОТЧИКИ КОМАНД ---
+# --- ОБРАБОТЧИКИ ---
 @bot.message_handler(commands=['start'])
 def start_message(message):
     user_group = get_user_group(message.chat.id)
@@ -63,7 +92,6 @@ def start_message(message):
 def change_group(message):
     bot.send_message(message.chat.id, "Выбери новую группу:", reply_markup=get_groups_menu())
 
-# --- ОТЛАДОЧНАЯ ФУНКЦИЯ (Покажет сырые данные) ---
 @bot.message_handler(func=lambda message: message.text == '📅 Расписание на сегодня')
 def today_schedule(message):
     group = get_user_group(message.chat.id)
@@ -72,24 +100,11 @@ def today_schedule(message):
         return
         
     today = datetime.now().strftime('%Y-%m-%d')
-    bot.send_message(message.chat.id, f"⏳ Смотрю данные с сайта для группы {group}...")
+    bot.send_message(message.chat.id, f"⏳ Загружаю расписание на сегодня для группы {group}...")
     
-    try:
-        url = f"{API_BASE}/schedule_range?group={requests.utils.quote(group)}&from={today}&to={today}"
-        r = requests.get(url)
-        data = r.json()
-        
-        if data and data[0].get('lessons'):
-            first_lesson = data[0]['lessons'][0]
-            # Превращаем в красивый текст и отправляем
-            debug_text = json.dumps(first_lesson, ensure_ascii=False, indent=2)
-            bot.send_message(message.chat.id, f"Вот как выглядит пара в базе сайта:\n\n{debug_text}")
-        else:
-            bot.send_message(message.chat.id, "На сегодня пар нет (или сайт вернул пустоту).")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"Ошибка: {e}")
+    schedule = get_schedule(group, today, today)
+    bot.send_message(message.chat.id, f"📚 Расписание ({group}):\n{schedule}", parse_mode='Markdown', reply_markup=get_main_menu())
 
-# --- ВЫБОР ГРУППЫ ---
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     text = message.text
